@@ -1398,11 +1398,11 @@
     const isMobileLike = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || Math.min(window.innerWidth, window.innerHeight) <= 768;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobileLike ? 1.75 : 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.14;
+    renderer.toneMappingExposure = isMobileLike ? 1.18 : 1.14;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(0x000000, 0);
     renderer.localClippingEnabled = true;
@@ -1537,9 +1537,10 @@
         tColor: { value: mainRT.texture },
         tEdge: { value: edgeInfoRT.texture },
         uTexelSize: { value: new THREE.Vector2(1.0 / _initRtW, 1.0 / _initRtH) },
-        uEdgeStep: { value: Math.min(1.65, Math.max(1.0, renderer.getPixelRatio() * 0.85)) },
+        uEdgeStep: { value: 1.0 },
         uEdgeColor: { value: new THREE.Color(0.06, 0.09, 0.085) },
-        uEdgeAlpha: { value: 0.78 },
+        uEdgeAlpha: { value: isMobileLike ? 0.66 : 0.78 },
+        uIsMobile: { value: isMobileLike ? 1.0 : 0.0 },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -1555,6 +1556,7 @@
         uniform float uEdgeStep;
         uniform vec3 uEdgeColor;
         uniform float uEdgeAlpha;
+        uniform float uIsMobile;
         varying vec2 vUv;
 
         vec3 decodeViewNormal(vec2 rg) {
@@ -1579,46 +1581,64 @@
           vec2 stepUv = uTexelSize * uEdgeStep;
           vec4 cMain = texture2D(tColor, vUv);
 
-          // 四邻 Roberts Cross 交叉采样（保证线宽稳定 ~1px，绝不在缝隙糊黑）
-          vec4 e00 = texture2D(tEdge, vUv);
-          vec4 e10 = texture2D(tEdge, vUv + vec2(stepUv.x, 0.0));
-          vec4 e01 = texture2D(tEdge, vUv + vec2(0.0, stepUv.y));
-          vec4 e11 = texture2D(tEdge, vUv + stepUv);
+          // 中心对称十字 5 点严格整数 texel 采样，消除非整数 NearestFilter 跳步断线
+          vec4 eC = texture2D(tEdge, vUv);
+          vec4 eL = texture2D(tEdge, vUv - vec2(stepUv.x, 0.0));
+          vec4 eR = texture2D(tEdge, vUv + vec2(stepUv.x, 0.0));
+          vec4 eU = texture2D(tEdge, vUv + vec2(0.0, stepUv.y));
+          vec4 eD = texture2D(tEdge, vUv - vec2(0.0, stepUv.y));
 
-          // 1. 景深悬空/实体外缘跃变（约 0.36m ~ 0.76m 深度跳变触发）
-          float d00 = edgeDepth(e00);
-          float d10 = edgeDepth(e10);
-          float d01 = edgeDepth(e01);
-          float d11 = edgeDepth(e11);
-          float dGrad = sqrt((d00 - d11) * (d00 - d11) + (d10 - d01) * (d10 - d01));
-          float silhouetteEdge = smoothstep(0.0045, 0.0095, dGrad);
+          float dC = edgeDepth(eC);
+          float dL = edgeDepth(eL);
+          float dR = edgeDepth(eR);
+          float dU = edgeDepth(eU);
+          float dD = edgeDepth(eD);
 
-          // 2. 任意相邻部件分界（部件 ID 不同且至少有一方非背景即清晰分界）
-          float p00 = partGroup(e00.a);
-          float p10 = partGroup(e10.a);
-          float p01 = partGroup(e01.a);
-          float p11 = partGroup(e11.a);
-          float partDiff = max(abs(p00 - p11), abs(p10 - p01));
-          float boundaryEdge = step(0.5, partDiff);
+          float pC = partGroup(eC.a);
+          float pL = partGroup(eL.a);
+          float pR = partGroup(eR.a);
+          float pU = partGroup(eU.a);
+          float pD = partGroup(eD.a);
 
-          // 3. 仅大建筑物大起伏棱线（同一正 ID 部件内部且无深度跳变，仅 >=45° 大折角描边）
-          bool samePart = (p00 > 0.5) && (abs(p00 - p10) < 0.5) && (abs(p00 - p01) < 0.5) && (abs(p00 - p11) < 0.5);
+          // 1. 连续外轮廓深度跃变（前景边缘满权 + 背景边缘柔和 0.42 过渡，根除斜边断点与锯齿）
+          float dDiffMax = max(max(abs(dC - dL), abs(dC - dR)), max(abs(dC - dU), abs(dC - dD)));
+          float dDiffAvg = (abs(dC - dL) + abs(dC - dR) + abs(dC - dU) + abs(dC - dD)) * 0.25;
+          float frontBias = (pC > 0.5) ? 1.0 : 0.42;
+          float silhouetteEdge = smoothstep(0.0040, 0.0090, max(dDiffMax, dDiffAvg * 1.35)) * frontBias;
+
+          // 2. 连续部件分界线（按四邻不同部件累计再柔和映射，斜向分界线平滑不断点）
+          float bSum = 0.0;
+          if (pC > 0.5) {
+            if (pL > 0.5 && abs(pC - pL) >= 0.5 && dC <= dL + 0.0025) bSum += 1.0;
+            if (pR > 0.5 && abs(pC - pR) >= 0.5 && dC <= dR + 0.0025) bSum += 1.0;
+            if (pU > 0.5 && abs(pC - pU) >= 0.5 && dC <= dU + 0.0025) bSum += 1.0;
+            if (pD > 0.5 && abs(pC - pD) >= 0.5 && dC <= dD + 0.0025) bSum += 1.0;
+          }
+          float boundaryEdge = smoothstep(0.0, 1.45, bSum) * 0.88;
+
+          // 3. 建筑大起伏棱线（中心对称法线梯度 + 移动端过滤碎杂噪点仅留主折角）
+          bool samePart = (pC > 0.5)
+            && (abs(pC - pL) < 0.5) && (abs(pC - pR) < 0.5)
+            && (abs(pC - pU) < 0.5) && (abs(pC - pD) < 0.5);
           bool allowCrease = samePart
-            && (mod(floor(e00.a + 0.5), 2.0) > 0.5)
-            && (mod(floor(e10.a + 0.5), 2.0) > 0.5)
-            && (mod(floor(e01.a + 0.5), 2.0) > 0.5)
-            && (mod(floor(e11.a + 0.5), 2.0) > 0.5);
+            && (mod(floor(eC.a + 0.5), 2.0) > 0.5)
+            && (mod(floor(eL.a + 0.5), 2.0) > 0.5)
+            && (mod(floor(eR.a + 0.5), 2.0) > 0.5)
+            && (mod(floor(eU.a + 0.5), 2.0) > 0.5)
+            && (mod(floor(eD.a + 0.5), 2.0) > 0.5);
           float creaseEdge = 0.0;
           if (allowCrease && silhouetteEdge < 0.25) {
-            vec3 n00 = decodeViewNormal(e00.rg);
-            vec3 n10 = decodeViewNormal(e10.rg);
-            vec3 n01 = decodeViewNormal(e01.rg);
-            vec3 n11 = decodeViewNormal(e11.rg);
-            float nGrad = max(length(n00 - n11), length(n10 - n01));
-            creaseEdge = smoothstep(0.58, 0.92, nGrad) * 0.80;
+            vec3 nL = decodeViewNormal(eL.rg);
+            vec3 nR = decodeViewNormal(eR.rg);
+            vec3 nU = decodeViewNormal(eU.rg);
+            vec3 nD = decodeViewNormal(eD.rg);
+            float nGrad = max(length(nL - nR), length(nU - nD));
+            float crLo = mix(0.56, 0.76, uIsMobile);
+            float crHi = mix(0.90, 1.12, uIsMobile);
+            creaseEdge = smoothstep(crLo, crHi, nGrad) * mix(0.80, 0.68, uIsMobile);
           }
 
-          float edgeStrength = max(max(silhouetteEdge, boundaryEdge * 0.92), creaseEdge);
+          float edgeStrength = max(max(silhouetteEdge, boundaryEdge), creaseEdge);
           float edgeAlpha = clamp(edgeStrength * uEdgeAlpha, 0.0, 1.0);
 
           // 线性色 unpremultiply -> ACESFilmicToneMapping -> sRGB -> 预乘 Porter-Duff SrcOver 合成
@@ -2345,13 +2365,16 @@
 
     /** 创建一个水平镜面反射平面并加入当前关卡（全分辨率线性过滤，支持第一幕水晶水与第三幕夜海波光 Shader）。 */
     function addMirror(opt) {
-      const mirrorSamples = isWebGL2 ? (isMobileLike ? Math.min(2, opt.samples || 0) : (opt.samples || 0)) : 0;
-      const rt = new THREE.WebGLRenderTarget(4, 4, {
-        type: THREE.UnsignedByteType,
-        samples: mirrorSamples,
-        minFilter: THREE.LinearFilter,
-        magFilter: THREE.LinearFilter,
-      });
+      const mirrorSamples = isMobileLike ? 0 : (isWebGL2 ? (opt.samples || 0) : 0);
+      const sharedFrom = opt.sharedWith || null;
+      const rt = sharedFrom
+        ? sharedFrom.rt
+        : new THREE.WebGLRenderTarget(4, 4, {
+            type: THREE.UnsignedByteType,
+            samples: mirrorSamples,
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+          });
       const geo = new THREE.PlaneGeometry(opt.width, opt.depth);
       geo.rotateX(-Math.PI / 2);
       geo.deleteAttribute("normal"); // 无法线 -> 跳过描边
@@ -2398,32 +2421,49 @@
       levelRoot.add(mesh);
       const cam = new THREE.OrthographicCamera();
       const clipY = opt.clipY !== undefined ? opt.clipY : (opt.y - 0.004);
-      const m = { mesh, rt, cam, y: opt.y, resScale: opt.resScale || 1.0,
+      const m = { mesh, rt, cam, y: opt.y, resScale: opt.resScale || 1.0, sharedFrom,
         clip: new THREE.Plane(new THREE.Vector3(0, 1, 0), -clipY) };
       mirrors.push(m);
       return m;
     }
 
     const _mLook = new THREE.Vector3();
+    let _mirrorFrameCount = 0;
+    let _mirrorLastYaw = 999;
+    let _mirrorLastZoom = 999;
 
-    /** 每帧在主渲染前更新所有镜面的反射纹理。 */
+    /** 每帧在主渲染前更新所有镜面的反射纹理（移动端半分辨率、关阴影、稳态分帧轮流更新）。 */
     function updateMirrors(now) {
       if (!mirrors.length) return;
+      _mirrorFrameCount++;
       renderer.getDrawingBufferSize(_mv2);
       camera.updateMatrixWorld();
+      const camMoved = Math.abs(camYawCurrent - _mirrorLastYaw) > 0.002 || Math.abs(camera.zoom - _mirrorLastZoom) > 0.002;
+      _mirrorLastYaw = camYawCurrent;
+      _mirrorLastZoom = camera.zoom;
+      const refreshAll = !isMobileLike || _mirrorFrameCount <= 6 || camMoved;
+
+      const masterMirrors = mirrors.filter((m) => !m.sharedFrom);
+      const childMirrors = mirrors.filter((m) => !!m.sharedFrom);
+      const timeSec = now * 0.001;
+
       const prevTarget = renderer.getRenderTarget();
       const prevClip = renderer.clippingPlanes;
       const prevShadow = renderer.shadowMap.autoUpdate;
+      const prevShadowEnabled = renderer.shadowMap.enabled;
       renderer.shadowMap.autoUpdate = false;
+      if (isMobileLike) renderer.shadowMap.enabled = false;
       mirrors.forEach(mm => { mm.mesh.visible = false; });
       const prevBg = scene.background;
       const prevClearAlpha = renderer.getClearAlpha();
       renderer.getClearColor(_mClear);
       scene.background = null;
       renderer.setClearColor(0x000000, 0);
-      for (const m of mirrors) {
-        const w = Math.max(4, Math.floor(_mv2.x * m.resScale));
-        const h = Math.max(4, Math.floor(_mv2.y * m.resScale));
+
+      masterMirrors.forEach((m, idx) => {
+        const effResScale = m.resScale * (isMobileLike ? 0.45 : 1.0);
+        const w = Math.max(4, Math.floor(_mv2.x * effResScale));
+        const h = Math.max(4, Math.floor(_mv2.y * effResScale));
         if (m.rt.width !== w || m.rt.height !== h) {
           m.rt.setSize(w, h);
           m.mesh.material.uniforms.texelSize.value.set(1.0 / w, 1.0 / h);
@@ -2442,24 +2482,43 @@
         m.cam.projectionMatrix.copy(camera.projectionMatrix);
         m.cam.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
         m.mesh.material.uniforms.textureMatrix.value.copy(_mBias).multiply(m.cam.projectionMatrix).multiply(m.cam.matrixWorldInverse);
-        m.mesh.material.uniforms.time.value = now * 0.001;
-        renderer.clippingPlanes = [m.clip];
-        renderer.setRenderTarget(m.rt);
-        renderer.clear();
-        renderer.render(scene, m.cam);
-      }
+        m.mesh.material.uniforms.time.value = timeSec;
+        if (refreshAll || (idx === (_mirrorFrameCount % Math.max(1, masterMirrors.length)))) {
+          renderer.clippingPlanes = [m.clip];
+          renderer.setRenderTarget(m.rt);
+          renderer.clear();
+          renderer.render(scene, m.cam);
+        }
+      });
+
+      childMirrors.forEach((m) => {
+        m.mesh.material.uniforms.texelSize.value.copy(m.sharedFrom.mesh.material.uniforms.texelSize.value);
+        m.mesh.material.uniforms.textureMatrix.value.copy(m.sharedFrom.mesh.material.uniforms.textureMatrix.value);
+        m.mesh.material.uniforms.time.value = timeSec;
+      });
+
       mirrors.forEach(mm => { mm.mesh.visible = true; });
       scene.background = prevBg;
       renderer.setClearColor(_mClear, prevClearAlpha);
       renderer.setRenderTarget(prevTarget);
       renderer.clippingPlanes = prevClip;
       renderer.shadowMap.autoUpdate = prevShadow;
+      renderer.shadowMap.enabled = prevShadowEnabled;
     }
 
-    /** 释放所有镜面渲染目标（切换关卡时调用）。 */
+    /** 释放所有镜面渲染目标（对共享 RenderTarget 去重后销毁）。 */
     function disposeMirrors() {
-      mirrors.forEach(m => { m.rt.dispose(); m.mesh.geometry.dispose(); m.mesh.material.dispose(); });
+      const disposedRts = new Set();
+      mirrors.forEach((m) => {
+        if (m.rt && !disposedRts.has(m.rt)) {
+          disposedRts.add(m.rt);
+          m.rt.dispose();
+        }
+        m.mesh.geometry.dispose();
+        m.mesh.material.dispose();
+      });
       mirrors = [];
+      _mirrorFrameCount = 0;
     }
 
     // === 主角（Rodin 四边面重拓扑 + 人形骨骼绑定 + 四动作状态机）与寻路 ===
@@ -2986,7 +3045,8 @@
       const sun = new THREE.DirectionalLight(sunColor, sunInt);
       sun.position.set(...sunPos);
       sun.castShadow = true;
-      sun.shadow.mapSize.set(2048, 2048);
+      const shadowSz = isMobileLike ? 1024 : 2048;
+      sun.shadow.mapSize.set(shadowSz, shadowSz);
       sun.shadow.bias = -0.00035;
       sun.shadow.normalBias = 0.018;
       sun.shadow.camera.left = -13.5; sun.shadow.camera.right = 13.5;
@@ -4329,12 +4389,13 @@
       const ACT1_WAT_OPT = { crystalWater: true, tint: 0x66c6f0, shallow: 0x3ec2ea, mid: 0x1e8ed6, deep: 0x115ba8, strength: 0.17, ripple: 0.0012, resScale: 1.0 };
 
       const northWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 4.86, depth: 2.24, x: 0.08, z: -3.18, y: 0.46, alpha: 0.56, ripple: 0.0011, edgeMask: [1, 1, 1, 1] });
+      const midWaterMaster = addMirror({ ...ACT1_WAT_OPT, width: 5.42, depth: 3.18, x: 0.42, z: -0.14, y: 0.62, alpha: 0.64, ripple: 0.0013, edgeMask: [0, 1, 1, 1] });
       const midWaterMirrors = [
-        addMirror({ ...ACT1_WAT_OPT, width: 5.42, depth: 3.18, x: 0.42, z: -0.14, y: 0.62, alpha: 0.64, ripple: 0.0013, edgeMask: [0, 1, 1, 1] }),
-        addMirror({ ...ACT1_WAT_OPT, width: 2.66, depth: 3.24, x: 4.75, z: -0.16, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [1, 1, 1, 0] }),
-        addMirror({ ...ACT1_WAT_OPT, width: 2.03, depth: 1.28, x: 5.065, z: 2.10, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [0, 1, 0, 0] }),
-        addMirror({ ...ACT1_WAT_OPT, width: 2.03, depth: 1.72, x: 5.065, z: 3.60, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [0, 1, 0, 1] }),
-        addMirror({ ...ACT1_WAT_OPT, width: 2.62, depth: 3.12, x: -3.60, z: 0.31, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [1, 0, 0, 0] }),
+        midWaterMaster,
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.66, depth: 3.24, x: 4.75, z: -0.16, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [1, 1, 1, 0] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.28, x: 5.065, z: 2.10, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [0, 1, 0, 0] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.72, x: 5.065, z: 3.60, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [0, 1, 0, 1] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.62, depth: 3.12, x: -3.60, z: 0.31, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [1, 0, 0, 0] }),
       ];
       const southWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 8.60, depth: 2.52, x: -0.25, z: 3.13, y: 0.72, alpha: 0.64, ripple: 0.0012, edgeMask: [1, 0, 2, 1] });
 
@@ -9703,7 +9764,7 @@
 
     window.addEventListener("resize", () => {
       applyMainCameraProjection();
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobileLike ? 1.75 : 2));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.getDrawingBufferSize(_rtSize);
       const rw = Math.max(1, Math.floor(_rtSize.x));
@@ -9711,7 +9772,7 @@
       mainRT.setSize(rw, rh);
       edgeInfoRT.setSize(rw, rh);
       compositeMat.uniforms.uTexelSize.value.set(1.0 / rw, 1.0 / rh);
-      compositeMat.uniforms.uEdgeStep.value = Math.min(1.65, Math.max(1.0, renderer.getPixelRatio() * 0.85));
+      compositeMat.uniforms.uEdgeStep.value = 1.0;
       syncCompactBottomLabels();
       const angEl = document.getElementById("angle-box");
       if (angEl) angEl.textContent = isPortraitHudLayout() ? `🧭 ${SNAP_DEG[viewIdx]}°` : `🧭 正交视角：${SNAP_DEG[viewIdx]}°`;
