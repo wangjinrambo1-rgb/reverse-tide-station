@@ -4376,18 +4376,18 @@
 
       // 3. V20 三层独立联动水晶水镜（南池下层 / 中池中层 / 北池顶层各自独立实时升降水面！）
       addMirror({ width: 42, depth: 42, x: 0.0, z: 0.0, y: -0.305, tint: 0xd6efe8, deep: 0x9accc4, strength: 0.20, alpha: 0.14, ripple: 0.0, resScale: 1.0 });
-      const ACT1_WAT_OPT = { crystalWater: true, tint: 0x3496d8, shallow: 0x1b8bc4, mid: 0x0d5da6, deep: 0x07346c, strength: 0.16, ripple: 0.0012, resScale: 1.0 };
+      const ACT1_WAT_OPT = { crystalWater: true, tint: 0x165a8e, shallow: 0x093c66, mid: 0x031f4d, deep: 0x010e2e, strength: 0.15, ripple: 0.0012, resScale: 1.0 };
 
-      const northWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 4.86, depth: 2.24, x: 0.08, z: -3.18, y: 0.46, alpha: 0.72, ripple: 0.0011, edgeMask: [1, 1, 1, 1] });
-      const midWaterMaster = addMirror({ ...ACT1_WAT_OPT, width: 5.42, depth: 3.18, x: 0.42, z: -0.14, y: 0.62, alpha: 0.78, ripple: 0.0013, edgeMask: [0, 1, 1, 1] });
+      const northWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 4.86, depth: 2.24, x: 0.08, z: -3.18, y: 0.46, alpha: 0.82, ripple: 0.0011, edgeMask: [1, 1, 1, 1] });
+      const midWaterMaster = addMirror({ ...ACT1_WAT_OPT, width: 5.42, depth: 3.18, x: 0.42, z: -0.14, y: 0.62, alpha: 0.86, ripple: 0.0013, edgeMask: [0, 1, 1, 1] });
       const midWaterMirrors = [
         midWaterMaster,
-        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.66, depth: 3.24, x: 4.75, z: -0.16, y: 0.62, alpha: 0.76, ripple: 0.0011, edgeMask: [1, 1, 1, 0] }),
-        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.28, x: 5.065, z: 2.10, y: 0.62, alpha: 0.76, ripple: 0.0011, edgeMask: [0, 1, 0, 0] }),
-        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.72, x: 5.065, z: 3.60, y: 0.62, alpha: 0.76, ripple: 0.0011, edgeMask: [0, 1, 0, 1] }),
-        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.62, depth: 3.12, x: -3.60, z: 0.31, y: 0.62, alpha: 0.76, ripple: 0.0011, edgeMask: [1, 0, 0, 0] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.66, depth: 3.24, x: 4.75, z: -0.16, y: 0.62, alpha: 0.84, ripple: 0.0011, edgeMask: [1, 1, 1, 0] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.28, x: 5.065, z: 2.10, y: 0.62, alpha: 0.84, ripple: 0.0011, edgeMask: [0, 1, 0, 0] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.72, x: 5.065, z: 3.60, y: 0.62, alpha: 0.84, ripple: 0.0011, edgeMask: [0, 1, 0, 1] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.62, depth: 3.12, x: -3.60, z: 0.31, y: 0.62, alpha: 0.84, ripple: 0.0011, edgeMask: [1, 0, 0, 0] }),
       ];
-      const southWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 8.60, depth: 2.52, x: -0.25, z: 3.13, y: 0.72, alpha: 0.78, ripple: 0.0012, edgeMask: [1, 0, 2, 1] });
+      const southWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 8.60, depth: 2.52, x: -0.25, z: 3.13, y: 0.72, alpha: 0.86, ripple: 0.0012, edgeMask: [1, 0, 2, 1] });
 
       let southWaterY = 0.72, midWaterY = 0.62, northWaterY = 0.46;
       let southDepthScale = 0.88, midDepthScale = 0.82, northDepthScale = 0.50;
@@ -9458,6 +9458,7 @@
       return { x: (pts[0].x + pts[1].x) * 0.5, y: (pts[0].y + pts[1].y) * 0.5 };
     }
 
+    ["gesturestart", "gesturechange"].forEach((ev) => renderer.domElement.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
     renderer.domElement.addEventListener("pointerdown", (e) => {
       if (customFinaleRenderer) return;
       if (e.target && e.target.closest && e.target.closest("#npc-dialog")) return;
@@ -9786,6 +9787,39 @@
       setTimeout(() => startAscensionInterlude(_urlInterlude === "12" ? 1 : 2, _urlInterlude === "12" ? 2 : 3), 2800);
     }
     animate(performance.now());
+    if (new URLSearchParams(window.location.search).get("testPan") === "1") {
+      const _runPanTest = () => {
+        const ld = document.getElementById("loading");
+        if (ld && getComputedStyle(ld).display !== "none" && parseFloat(getComputedStyle(ld).opacity || "1") > 0.05) {
+          setTimeout(_runPanTest, 350);
+          return;
+        }
+        setTimeout(() => {
+          const cv = renderer.domElement;
+          const cx = window.innerWidth * 0.5;
+          const cy = window.innerHeight * 0.5;
+          const mk = (type, id, x, y) => new PointerEvent(type, { pointerId: id, pointerType: "touch", clientX: x, clientY: y, bubbles: true, cancelable: true });
+          cv.dispatchEvent(mk("pointerdown", 101, cx - 30, cy));
+          cv.dispatchEvent(mk("pointerdown", 102, cx + 30, cy));
+          // 第1段：张开双指放大约 2.1x
+          for (let i = 1; i <= 8; i++) {
+            const half = 30 + (36 * i) / 8;
+            window.dispatchEvent(mk("pointermove", 101, cx - half, cy));
+            window.dispatchEvent(mk("pointermove", 102, cx + half, cy));
+          }
+          // 第2段：两指同步向左上方平移，将右侧蒸汽锅炉房移入屏幕视野
+          for (let i = 1; i <= 10; i++) {
+            const tx = (-115 * i) / 10;
+            const ty = (-35 * i) / 10;
+            window.dispatchEvent(mk("pointermove", 101, cx - 66 + tx, cy + ty));
+            window.dispatchEvent(mk("pointermove", 102, cx + 66 + tx, cy + ty));
+          }
+          window.dispatchEvent(mk("pointerup", 101, cx - 181, cy - 35));
+          window.dispatchEvent(mk("pointerup", 102, cx - 49, cy - 35));
+        }, 900);
+      };
+      setTimeout(_runPanTest, 1200);
+    }
   </script>
 </body>
 </html>
