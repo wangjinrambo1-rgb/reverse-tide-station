@@ -715,75 +715,118 @@
     .quest-toggle-btn { display: none; margin-left: auto; padding: 1px 7px !important; font-size: 11px !important; }
     .zoom-reset-btn { display: none; padding: 3px 7px !important; font-size: 10.5px !important; }
     .zoom-reset-btn.show { display: inline-flex; align-items: center; justify-content: center; }
+    .mobile-reset-btn,
+    #mobile-gesture-hint { display: none; }
 
-    /* === 手机端 / 竖屏响应式完整适配（桌面横屏保持原样像素级不变） === */
+    /* === 手机端 / 竖屏极简无框沉浸适配（仅留轻量提示字与页签，桌面横屏保持原样不变） === */
     @media (max-width: 768px), (orientation: portrait) and (max-width: 900px) {
       .hud-top {
-        flex-direction: column; align-items: stretch;
-        top: calc(8px + env(safe-area-inset-top)); left: 8px; right: 8px; gap: 5px;
+        flex-direction: column; align-items: center;
+        top: calc(10px + env(safe-area-inset-top)); left: 10px; right: 10px; gap: 4px;
+      }
+      .hud-top .panel {
+        border: none !important;
+        border-image: none !important;
+        background: transparent !important;
+        filter: none !important;
       }
       .act-tabs {
-        order: -1; border-width: 10px; padding: 2px 4px; gap: 4px;
-        justify-content: space-between; width: 100%;
+        order: -1; padding: 0; gap: 12px;
+        justify-content: center; align-items: center; width: auto;
       }
       .act-tabs .btn {
-        flex: 1 1 0; text-align: center; padding: 5px 4px; font-size: 11.6px;
+        background: none !important;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 3px 4px; font-size: 12.2px; font-weight: 600;
+        color: rgba(54, 38, 40, 0.56);
+        text-shadow: 0 1px 5px rgba(255, 244, 238, 0.72);
       }
+      .act-tabs .btn:hover { transform: none; background: none !important; box-shadow: none !important; }
+      .act-tabs .btn.active {
+        color: #243154 !important;
+        border-bottom-color: #c24b38 !important;
+        font-weight: 800;
+      }
+      body.act1-mode .act-tabs .btn {
+        color: rgba(18, 74, 62, 0.56);
+        text-shadow: 0 1px 5px rgba(240, 255, 248, 0.80);
+      }
+      body.act1-mode .act-tabs .btn.active {
+        color: #145c4e !important;
+        border-bottom-color: #1e7b68 !important;
+      }
+      body.night-mode .act-tabs .btn {
+        color: rgba(214, 226, 250, 0.56);
+        text-shadow: 0 1px 8px rgba(4, 10, 28, 0.90);
+      }
+      body.night-mode .act-tabs .btn.active {
+        color: #ffe4a8 !important;
+        border-bottom-color: #f0b854 !important;
+      }
+      .mobile-reset-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        background: none; border: none; padding: 3px 5px;
+        font-size: 13px; font-weight: 700; cursor: pointer;
+        color: rgba(54, 38, 40, 0.56);
+        text-shadow: 0 1px 5px rgba(255, 244, 238, 0.72);
+      }
+      body.act1-mode .mobile-reset-btn { color: rgba(18, 74, 62, 0.60); text-shadow: 0 1px 5px rgba(240, 255, 248, 0.80); }
+      body.night-mode .mobile-reset-btn { color: rgba(214, 226, 250, 0.64); text-shadow: 0 1px 8px rgba(4, 10, 28, 0.90); }
+
       .quest-box {
-        max-width: none; width: 100%; border-width: 11px; padding: 2px 6px;
+        max-width: 92vw; width: auto; padding: 0 8px;
+        text-align: center; pointer-events: none;
       }
-      .quest-box h1 {
-        font-size: 13.5px; gap: 5px; padding-bottom: 4px;
-      }
-      .quest-box .step-badge,
-      .quest-box .type-badge {
-        font-size: 10px; padding: 1px 6px;
-      }
-      .quest-toggle-btn { display: inline-flex; align-items: center; justify-content: center; }
-      .quest-box.collapsed .quest-goal,
-      .quest-box.collapsed .quest-actions { display: none; }
-      .quest-box.collapsed h1 { border-bottom: none; padding-bottom: 0; }
+      .quest-box h1 { display: none; }
+      #btn-reset { display: none; }
+      .quest-actions { margin-top: 6px; justify-content: center; pointer-events: auto; }
       .quest-goal {
-        margin-top: 4px; font-size: 11.6px; line-height: 1.42;
+        margin-top: 1px; font-size: 11.8px; font-weight: 600; line-height: 1.44; letter-spacing: 0.25px;
+        color: rgba(108, 40, 32, 0.86);
+        text-shadow: 0 1px 6px rgba(255, 240, 234, 0.86);
       }
-      .quest-actions { margin-top: 4px; gap: 5px; }
-      .quest-actions .btn.sm { padding: 3px 8px; font-size: 11px; }
+      body.act1-mode .quest-goal {
+        color: rgba(20, 82, 70, 0.88);
+        text-shadow: 0 1px 6px rgba(240, 255, 249, 0.88);
+      }
+      body.night-mode .quest-goal {
+        color: rgba(255, 214, 186, 0.90);
+        text-shadow: 0 1px 8px rgba(4, 10, 28, 0.92);
+      }
 
-      #act1-boiler-ctrl {
-        left: 8px; right: 8px; max-width: none; width: auto;
-        border-width: 10px; padding: 2px 6px; gap: 4px;
-      }
-      #act1-boiler-ctrl .tide-row {
-        justify-content: space-between; gap: 4px; flex-wrap: nowrap;
-      }
-      #act1-boiler-ctrl .tide-pill {
-        flex: 1 1 0; text-align: center; font-size: 10.2px; padding: 2px 4px; white-space: nowrap;
-      }
-      #act1-boiler-ctrl .boiler-drag-wrap { gap: 4px; margin-top: 1px; }
-      #act1-boiler-ctrl .boiler-dir-labels { font-size: 10.2px; gap: 4px; }
-      #act1-boiler-ctrl .boiler-dir-pill { padding: 1px 6px; }
-      #act1-boiler-ctrl .boiler-drag-track { height: 28px; }
-      #act1-boiler-ctrl .boiler-drag-knob { width: 28px; height: 28px; font-size: 12px; }
+      #act1-boiler-ctrl,
+      .hud-bottom { display: none !important; }
 
-      .hud-bottom {
-        bottom: calc(8px + env(safe-area-inset-bottom));
-        width: calc(100vw - 16px); max-width: 440px; gap: 0;
+      #mobile-gesture-hint {
+        display: block; position: fixed;
+        bottom: calc(14px + env(safe-area-inset-bottom)); left: 12px; right: 12px;
+        text-align: center; font-size: 11.2px; font-weight: 600; letter-spacing: 0.4px;
+        pointer-events: none; z-index: 9;
+        color: rgba(68, 42, 44, 0.64);
+        text-shadow: 0 1px 6px rgba(255, 238, 232, 0.72);
+        transition: opacity 0.22s ease;
       }
-      .hud-bottom .panel {
-        width: 100%; border-width: 10px; padding: 2px 5px;
-        gap: 4px; row-gap: 4px; justify-content: space-between; flex-wrap: nowrap;
+      body.act1-mode #mobile-gesture-hint {
+        color: rgba(18, 74, 62, 0.66);
+        text-shadow: 0 1px 6px rgba(235, 252, 245, 0.80);
       }
-      .ui-compass-dial { width: 28px; height: 28px; flex: 0 0 28px; }
-      .hud-drag-note { display: none; }
-      .hud-bottom .inv-slot { font-size: 10.5px; padding: 3px 6px; }
-      .hud-bottom .btn.sm { font-size: 10.8px; padding: 4px 6px; }
+      body.night-mode #mobile-gesture-hint {
+        color: rgba(214, 228, 255, 0.72);
+        text-shadow: 0 1px 8px rgba(4, 10, 28, 0.92);
+      }
+      body.npc-dialog-open #mobile-gesture-hint,
+      body.finale-3d-mode #mobile-gesture-hint { opacity: 0; }
 
       #act1-wheel-pad,
       #act1-bell-panel,
       #act3-valve-pad,
       #act3-bolt-pad,
       #act3-bell-panel {
-        min-width: 0; width: calc(100vw - 16px); max-width: 380px;
+        min-width: 0; width: calc(100vw - 18px); max-width: 360px;
+        bottom: calc(14px + env(safe-area-inset-bottom));
         border-width: 12px; padding: 4px 8px;
       }
       #act1-wheel-pad .wheel-pad-track,
@@ -794,8 +837,8 @@
       #act3-bolt-pad .a3-valve-knob { width: 34px; height: 34px; }
 
       #npc-dialog {
-        width: calc(100vw - 14px); max-height: calc(100dvh - 110px);
-        bottom: calc(8px + env(safe-area-inset-bottom));
+        width: calc(100vw - 16px); max-height: calc(100dvh - 104px);
+        bottom: calc(10px + env(safe-area-inset-bottom));
         border-width: 14px; padding: 4px 8px; gap: 7px;
       }
       #npc-dialog .npc-main { gap: 10px; }
@@ -806,20 +849,28 @@
 
       #ascension-overlay .asc-hud,
       #act3-finale-overlay .finale-caption {
-        width: calc(100vw - 18px);
-        bottom: calc(10px + env(safe-area-inset-bottom));
-        border-width: 12px; padding: 4px 10px;
+        width: calc(100vw - 24px);
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        border: none !important;
+        border-image: none !important;
+        background: linear-gradient(180deg, rgba(8, 16, 36, 0.08) 0%, rgba(8, 16, 36, 0.46) 100%) !important;
+        filter: none !important;
+        border-radius: 12px;
+        padding: 10px 14px 12px;
       }
       #ascension-overlay .asc-title,
-      #act3-finale-overlay .finale-title { font-size: 15px; letter-spacing: 1px; }
+      #act3-finale-overlay .finale-title { font-size: 15px; letter-spacing: 1px; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.65); }
       #ascension-overlay .asc-sub,
-      #act3-finale-overlay .finale-poem { font-size: 11.6px; line-height: 1.48; margin-bottom: 6px; }
+      #act3-finale-overlay .finale-poem { font-size: 11.6px; line-height: 1.48; margin-bottom: 6px; text-shadow: 0 1px 5px rgba(0, 0, 0, 0.65); }
       #ascension-overlay .asc-dots { gap: 4.5px; margin-bottom: 7px; }
       #ascension-overlay .asc-dot { width: 7.5px; height: 7.5px; }
 
       #toast {
-        top: auto; bottom: calc(74px + env(safe-area-inset-bottom));
-        font-size: 12px; padding: 7px 14px; max-width: calc(100vw - 24px);
+        top: auto; bottom: calc(38px + env(safe-area-inset-bottom));
+        font-size: 11.8px; padding: 6px 14px; max-width: calc(100vw - 28px);
+      }
+      #loading-pill {
+        bottom: calc(40px + env(safe-area-inset-bottom));
       }
       #hover-tag { display: none !important; }
     }
@@ -851,10 +902,12 @@
       <button class="btn active" data-act="1">一 · 验潮庭</button>
       <button class="btn" data-act="2">二 · 回声双塔</button>
       <button class="btn" data-act="3">三 · 钟埠船闸</button>
+      <button class="mobile-reset-btn" id="btn-mobile-reset" type="button" title="重置本幕">↺</button>
     </div>
   </div>
 
   <div id="toast">提示信息</div>
+  <div id="mobile-gesture-hint" aria-hidden="true">轻点移动或触发机关 · 单指滑动转视角 · 双指缩放</div>
 
   <div id="npc-dialog-backdrop"></div>
   <div id="npc-dialog" role="dialog" aria-labelledby="npc-name">
@@ -1699,7 +1752,7 @@
 
     let customFinaleRenderer = null;
     const frustum = 15.8;
-    const PORTRAIT_MIN_WORLD_W = 19.6;
+    const PORTRAIT_MIN_WORLD_W = 18.6;
     let aspect = window.innerWidth / window.innerHeight;
     let userPinchZoom = 1.0;
     let userPinchZoomTarget = 1.0;
@@ -1712,13 +1765,13 @@
     const _portraitMq = window.matchMedia("(max-width: 768px), (orientation: portrait) and (max-width: 900px)");
     const isPortraitHudLayout = () => _portraitMq.matches;
 
-    /** 根据当前横竖屏比例自适应正交相机视锥，确保手机竖屏左右完整且避开顶栏。 */
+    /** 根据当前横竖屏比例自适应正交相机视锥，去 UI 后竖屏以更大视角居中展示主岛。 */
     function applyMainCameraProjection() {
       aspect = window.innerWidth / Math.max(window.innerHeight, 1);
       const effFrustum = aspect < 0.98
         ? Math.max(frustum, PORTRAIT_MIN_WORLD_W / Math.max(aspect, 0.36))
         : frustum;
-      const yShift = aspect < 0.98 ? effFrustum * 0.055 : 0.0;
+      const yShift = aspect < 0.98 ? effFrustum * 0.012 : 0.0;
       camera.left = (-effFrustum * aspect) / 2;
       camera.right = (effFrustum * aspect) / 2;
       camera.top = effFrustum / 2 + yShift;
@@ -1744,11 +1797,12 @@
 
     /** 统一更新底部交互浮条（一幕手轮/铜铃、三幕阀门/螺栓/钟闸）相对底栏的高度。 */
     function syncBottomFloatPanels() {
-      const hbPanel = document.querySelector(".hud-bottom .panel");
-      const bPx = hbPanel ? Math.max(66, Math.round(window.innerHeight - hbPanel.getBoundingClientRect().top + 8)) : 96;
+      const portrait = isPortraitHudLayout();
+      const hbPanel = !portrait ? document.querySelector(".hud-bottom .panel") : null;
+      const bPx = hbPanel ? Math.max(66, Math.round(window.innerHeight - hbPanel.getBoundingClientRect().top + 8)) : null;
       ["act1-wheel-pad", "act1-bell-panel", "act3-valve-pad", "act3-bolt-pad", "act3-bell-panel"].forEach((id) => {
         const el = document.getElementById(id);
-        if (el) el.style.bottom = `${bPx}px`;
+        if (el) el.style.bottom = portrait ? "" : `${bPx ?? 96}px`;
       });
     }
 
@@ -2896,6 +2950,12 @@
       angEl.textContent = compact ? `🧭 ${SNAP_DEG[viewIdx]}°` : `🧭 正交视角：${SNAP_DEG[viewIdx]}°`;
       const cmp = document.getElementById("ui-compass-img");
       if (cmp) cmp.style.transform = `rotate(${SNAP_DEG[viewIdx]}deg)`;
+      const mHint = document.getElementById("mobile-gesture-hint");
+      if (mHint) {
+        mHint.textContent = invList.length
+          ? `已携：${invList.join(" · ")} · 单指滑转 · 双指缩放`
+          : "轻点移动或触发机关 · 单指滑动转视角 · 双指缩放";
+      }
       requestAnimationFrame(syncTopHudOffsets);
     }
 
@@ -9615,11 +9675,14 @@
 
     document.getElementById("btn-rot-l").addEventListener("click", () => setViewIndex(viewIdx - 1));
     document.getElementById("btn-rot-r").addEventListener("click", () => setViewIndex(viewIdx + 1));
-    document.getElementById("btn-reset").addEventListener("click", () => {
+    const resetCurrentAct = () => {
       if (currentAct === 1) loadAct1();
       if (currentAct === 2) loadAct2();
       if (currentAct === 3) loadAct3();
-    });
+    };
+    document.getElementById("btn-reset").addEventListener("click", resetCurrentAct);
+    const mobileResetBtn = document.getElementById("btn-mobile-reset");
+    if (mobileResetBtn) mobileResetBtn.addEventListener("click", resetCurrentAct);
     window.addEventListener("keydown", (e) => {
       if (customFinaleRenderer) return;
       if (e.key === "Escape") { closeNpcDialog(); return; }
@@ -9627,9 +9690,9 @@
       if (e.key === "e" || e.key === "E") setViewIndex(viewIdx + 1);
     });
 
-    document.querySelectorAll(".act-tabs .btn").forEach(btn => {
+    document.querySelectorAll(".act-tabs .btn[data-act]").forEach(btn => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll(".act-tabs .btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".act-tabs .btn[data-act]").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         const act = Number(btn.dataset.act);
         if (act === 1) loadAct1();
