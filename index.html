@@ -239,59 +239,6 @@
     .night-mode .inv-slot { background: rgba(245, 200, 110, 0.14); color: #f6d892; border-color: rgba(235, 185, 96, 0.45); }
     .night-mode .inv-slot.parallax-ok { background: rgba(46, 184, 134, 0.25); color: #84f5ca; border-color: rgba(82, 212, 162, 0.55); }
 
-    /* 第一幕右上水位与锅炉滑轨控件匣（九宫格紧凑框） */
-    #act1-boiler-ctrl {
-      position: fixed; top: 84px; right: 14px;
-      display: flex; flex-direction: column; gap: 6px; align-items: stretch;
-      z-index: 10; pointer-events: auto;
-      max-width: 288px;
-      background: transparent;
-      border-style: solid; border-width: 16px; border-color: transparent;
-      border-image: url("./ui/ui_frame_act1_9slice.png?v=35") 124 fill stretch;
-      padding: 3px 6px;
-      filter: drop-shadow(0 8px 20px rgba(16, 52, 42, 0.18));
-    }
-    #act1-boiler-ctrl .tide-row { display: flex; gap: 5px; flex-wrap: wrap; }
-    #act1-boiler-ctrl .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
-    #act1-boiler-ctrl .tide-pill {
-      font-size: 11px; padding: 2px 7px; border-radius: 4px;
-      background: rgba(38, 118, 98, 0.10); color: #165548; font-weight: 700;
-      border: 1px solid rgba(58, 132, 112, 0.28); transition: all 0.25s ease;
-    }
-    #act1-boiler-ctrl .tide-pill.rising {
-      background: rgba(42, 168, 224, 0.18); color: #0b5a88; border-color: rgba(42, 168, 224, 0.52);
-    }
-    #act1-boiler-ctrl .tide-pill.falling {
-      background: rgba(217, 94, 58, 0.16); color: #963b1c; border-color: rgba(217, 94, 58, 0.46);
-    }
-    #act1-boiler-ctrl .btn.active-mode { background: #237464; color: #f4fffb; border-color: #195b4e; }
-    #act1-boiler-ctrl .boiler-drag-wrap { display: flex; flex-direction: column; gap: 5px; margin-top: 2px; }
-    #act1-boiler-ctrl .boiler-dir-labels {
-      display: flex; justify-content: space-between; align-items: center; gap: 6px;
-      font-size: 11px; font-weight: 700; color: #1f564a;
-    }
-    #act1-boiler-ctrl .boiler-dir-pill {
-      padding: 2px 7px; border-radius: 4px;
-      background: rgba(36, 92, 80, 0.09); border: 1px solid rgba(36, 92, 80, 0.24);
-      transition: all 0.2s;
-    }
-    #act1-boiler-ctrl .boiler-dir-pill.active-mode {
-      background: #237464; color: #f4fffb; border-color: #d1a147;
-      box-shadow: 0 2px 8px rgba(35, 116, 100, 0.28);
-    }
-    #act1-boiler-ctrl .boiler-drag-track {
-      position: relative; height: 32px; border-radius: 16px;
-      background: linear-gradient(90deg, rgba(46, 138, 114, 0.20), rgba(244, 249, 244, 0.94), rgba(217, 84, 67, 0.20));
-      border: 2px solid rgba(182, 138, 58, 0.72);
-      box-shadow: inset 0 2px 6px rgba(18, 52, 44, 0.18), 0 1px 0 rgba(255,255,255,0.65);
-      touch-action: none; user-select: none; cursor: ew-resize;
-      display: flex; align-items: center; justify-content: center;
-    }
-    #act1-boiler-ctrl .boiler-drag-fill {
-      position: absolute; top: 3px; bottom: 3px; left: 50%; width: 0;
-      border-radius: 14px; pointer-events: none; transition: background 0.12s;
-    }
-    #act1-boiler-ctrl .boiler-drag-knob,
     #act1-wheel-pad .wheel-pad-knob {
       position: relative; width: 30px; height: 30px; border-radius: 50%;
       background: radial-gradient(circle at 32% 30%, #f0765d, #c6412d 68%, #8f2618 100%);
@@ -602,7 +549,6 @@
     body.finale-3d-mode #night-stars,
     body.finale-3d-mode #toast,
     body.finale-3d-mode #hover-tag,
-    body.finale-3d-mode #act1-boiler-ctrl,
     body.finale-3d-mode #act1-wheel-drag-hud,
     body.finale-3d-mode #act1-wheel-pad,
     body.finale-3d-mode #act1-bell-panel,
@@ -797,7 +743,6 @@
         text-shadow: 0 1px 8px rgba(4, 10, 28, 0.92);
       }
 
-      #act1-boiler-ctrl,
       .hud-bottom { display: none !important; }
 
       #mobile-gesture-hint {
@@ -1799,21 +1744,6 @@
       camera.updateProjectionMatrix();
     }
     applyMainCameraProjection();
-
-    /** 竖屏下让第一幕锅炉控制栏紧贴 .hud-top 下方，桌面端恢复默认定位。 */
-    function syncTopHudOffsets() {
-      const ctrlBar = document.getElementById("act1-boiler-ctrl");
-      if (!ctrlBar) return;
-      if (isPortraitHudLayout()) {
-        const hudTop = document.querySelector(".hud-top");
-        if (hudTop) {
-          const topPx = Math.round(hudTop.getBoundingClientRect().bottom + 5);
-          ctrlBar.style.top = `${topPx}px`;
-        }
-      } else {
-        ctrlBar.style.top = "";
-      }
-    }
 
     /** 统一更新底部交互浮条（一幕手轮/铜铃、三幕阀门/螺栓/钟闸）相对底栏的高度。 */
     function syncBottomFloatPanels() {
@@ -3015,7 +2945,6 @@
           ? `已携：${invList.join(" · ")} · 单指滑转 · 双指缩放`
           : "轻点移动或触发机关 · 单指滑动转视角 · 双指缩放";
       }
-      requestAnimationFrame(syncTopHudOffsets);
     }
 
     let lightsGroup = new THREE.Group();
@@ -3080,7 +3009,7 @@
       if (heroActor) heroActor.play("Idle", 0.12, false);
       heroBody.position.y = 0.575;
       heroHead.position.y = 1.32;
-      ["btn-next-act2", "btn-next-act3", "ascension-overlay", "act1-boiler-ctrl", "act1-wheel-drag-hud", "act1-wheel-pad", "act1-bell-panel", "act3-valve-pad", "act3-bolt-pad", "act3-bell-panel", "act3-finale-overlay", "night-stars"].forEach((id) => {
+      ["btn-next-act2", "btn-next-act3", "ascension-overlay", "act1-wheel-drag-hud", "act1-wheel-pad", "act1-bell-panel", "act3-valve-pad", "act3-bolt-pad", "act3-bell-panel", "act3-finale-overlay", "night-stars"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.remove();
       });
@@ -4113,29 +4042,6 @@
       let refillManualRot = 0.0, refillSpinRot = 0.0;
       let boilerManualRot = 0.0, boilerWheelBaseRot = 0.0;
 
-      // 动态构建第一幕右上角蒸汽锅炉飞轮左右拖轨与三层水位操作卡（resetLevel() 自动清除）
-      const ctrlBar = document.createElement("div");
-      ctrlBar.id = "act1-boiler-ctrl";
-      ctrlBar.innerHTML = `
-        <div class="tide-row">
-          <span class="tide-pill" id="a1-tide-south">下层南池：初始</span>
-          <span class="tide-pill" id="a1-tide-mid">中层中池：基准</span>
-          <span class="tide-pill" id="a1-tide-north">顶层北池：浅槽</span>
-        </div>
-        <div class="boiler-drag-wrap">
-          <div class="boiler-dir-labels">
-            <span class="boiler-dir-pill" id="lbl-boiler-ccw">↺ 左拖 · 逆转西北</span>
-            <span class="boiler-dir-pill" id="lbl-boiler-cw">右拖 · 顺转灌北 ↻</span>
-          </div>
-          <div class="boiler-drag-track" id="boiler-drag-track" title="按住红色飞轮向左或向右拖动控制锅炉正反转">
-            <div class="boiler-drag-fill" id="boiler-drag-fill"></div>
-            <div class="boiler-drag-knob" id="boiler-drag-knob">☸</div>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(ctrlBar);
-      syncTopHudOffsets();
-
       const dragHud = document.createElement("div");
       dragHud.id = "act1-wheel-drag-hud";
       dragHud.innerHTML = `<div id="wd-text">🔄 左右拖动旋转</div><div class="wd-bar-bg"><div class="wd-bar-fill" id="wd-bar"></div></div>`;
@@ -4470,30 +4376,6 @@
           m: Math.max(0.24, Math.min(0.94, tgtM + dragMidBias)),
           n: tgtN,
         };
-      }
-
-      const tideHudCache = { s: "", sDir: "", m: "", mDir: "", n: "", nDir: "" };
-      function updateTideHud(tgts, force = false) {
-        const clamp01 = (v) => Math.max(0.0, Math.min(1.0, v));
-        const items = [
-          { id: "a1-tide-south", key: "s", label: "下层南池", cur: southWaterY, tgt: tgts.s, pct: Math.round(clamp01((southWaterY - 0.242) / (0.855 - 0.242)) * 100) },
-          { id: "a1-tide-mid",   key: "m", label: "中层中池", cur: midWaterY,   tgt: tgts.m, pct: Math.round(clamp01((midWaterY - 0.24) / (0.94 - 0.24)) * 100) },
-          { id: "a1-tide-north", key: "n", label: "顶层北池", cur: northWaterY, tgt: tgts.n, pct: Math.round(clamp01((northWaterY - 0.24) / (1.26 - 0.24)) * 100) },
-        ];
-        items.forEach((it) => {
-          const diff = it.tgt - it.cur;
-          const dir = diff > 0.012 ? "rising" : (diff < -0.012 ? "falling" : "idle");
-          const arrow = dir === "rising" ? " ↑" : (dir === "falling" ? " ↓" : "");
-          const txt = `${it.label}：${it.pct}%${arrow}`;
-          if (!force && tideHudCache[it.key] === txt && tideHudCache[it.key + "Dir"] === dir) return;
-          tideHudCache[it.key] = txt;
-          tideHudCache[it.key + "Dir"] = dir;
-          const el = document.getElementById(it.id);
-          if (!el) return;
-          el.textContent = txt;
-          el.classList.toggle("rising", dir === "rising");
-          el.classList.toggle("falling", dir === "falling");
-        });
       }
 
       // 4. V20 全新 Rodin 豆青瓷机关静座 & 独立可动分件拼接 + 南/北两层共 9 尊莲瓣圆瓷墩
@@ -4843,12 +4725,6 @@
         southPadsWalkZone.visible = st.refilled;
         refreshNodeHighlights(true);
 
-        updateTideHud(getTideTargets(), true);
-        const lCw = document.getElementById("lbl-boiler-cw");
-        const lCcw = document.getElementById("lbl-boiler-ccw");
-        if (lCw) lCw.classList.toggle("active-mode", st.boilerMode === "cw");
-        if (lCcw) lCcw.classList.toggle("active-mode", st.boilerMode === "ccw");
-
         const inv = [];
         if (st.hasWheel && !st.wheelMounted && !st.refilled) inv.push("朱砂红导流阀轮");
         if (st.cleared) {
@@ -4960,8 +4836,6 @@
           tideRippleTimer = 0.36;
         }
 
-        updateTideHud(tgts);
-
         // 退水桩与宝瓶阀座上独立挂载的 Rodin 红手轮同轴转动（叠加手动拖动回弹与旋转角）
         if (!wheelDrag.active && !wheelPadActive) {
           drainManualRot *= Math.exp(-safeDt * 10.0);
@@ -5037,7 +4911,7 @@
 
         // 锅炉大红飞轮：cw 模式顺转 (-) 增压 / ccw 模式逆转 (+) 泄压，并脉冲驱动蒸汽排浪（叠加手动拖动偏移）
         boilerWheelBoost *= Math.exp(-dt * 1.45);
-        if (!wheelDrag.active && !boilerTrackActive && !wheelPadActive) boilerManualRot *= Math.exp(-dt * 10.0);
+        if (!wheelDrag.active && !wheelPadActive) boilerManualRot *= Math.exp(-dt * 10.0);
         const dirSign = st.boilerMode === "ccw" ? +1.0 : -1.0;
         const wheelBaseSpeed = st.boilerMode === "idle" ? 0.55 : (st.waterCaught ? 2.8 : 2.35);
         const wheelSpeed = wheelBaseSpeed + boilerWheelBoost;
@@ -5254,93 +5128,6 @@
           }
         });
       }
-
-      // 右上角锅炉飞轮滑轨左右拖动逻辑
-      const boilerTrack = document.getElementById("boiler-drag-track");
-      const boilerKnob = document.getElementById("boiler-drag-knob");
-      const boilerFill = document.getElementById("boiler-drag-fill");
-      let boilerTrackActive = false;
-      let boilerTrackStartX = 0;
-      let boilerTrackMaxAbs = 0;
-      let boilerTrackLastTick = 0;
-      const BOILER_TRACK_LIMIT = 86;
-      const BOILER_TRACK_TRIG = 64;
-
-      function resetBoilerKnob() {
-        if (boilerKnob) boilerKnob.style.transform = "translateX(0px)";
-        if (boilerFill) { boilerFill.style.left = "50%"; boilerFill.style.width = "0px"; }
-      }
-
-      const onBoilerTrackDown = (e) => {
-        if (currentAct !== 1) return;
-        closeNpcDialog();
-        e.preventDefault();
-        e.stopPropagation();
-        if (!st.refilled) {
-          showToast("眼下还登不上那座高台。", 2600);
-          boilerTrack.classList.remove("shake-hint");
-          void boilerTrack.offsetWidth;
-          boilerTrack.classList.add("shake-hint");
-          return;
-        }
-        boilerTrackActive = true;
-        boilerTrackStartX = e.clientX;
-        boilerTrackMaxAbs = 0;
-        boilerTrackLastTick = 0;
-      };
-      const onBoilerTrackMove = (e) => {
-        if (!boilerTrackActive) return;
-        const rawDx = e.clientX - boilerTrackStartX;
-        const dx = Math.max(-BOILER_TRACK_LIMIT, Math.min(BOILER_TRACK_LIMIT, rawDx));
-        boilerTrackMaxAbs = Math.max(boilerTrackMaxAbs, Math.abs(rawDx));
-        if (boilerKnob) boilerKnob.style.transform = `translateX(${dx}px)`;
-        if (boilerFill) {
-          if (dx >= 0) {
-            boilerFill.style.left = "50%";
-            boilerFill.style.width = `${dx}px`;
-            boilerFill.style.background = "linear-gradient(90deg, rgba(235,130,85,0.28), rgba(217,84,67,0.72))";
-          } else {
-            boilerFill.style.left = `calc(50% + ${dx}px)`;
-            boilerFill.style.width = `${-dx}px`;
-            boilerFill.style.background = "linear-gradient(90deg, rgba(35,148,128,0.72), rgba(74,188,162,0.28))";
-          }
-        }
-        boilerManualRot = -(dx / BOILER_TRACK_TRIG) * Math.PI * 1.1;
-        if (Math.abs(dx - boilerTrackLastTick) >= 18) {
-          boilerTrackLastTick = dx;
-          playRatchetTick(dx >= 0 ? 1.12 : 0.88);
-        }
-        if (dx >= BOILER_TRACK_TRIG) {
-          boilerTrackActive = false;
-          resetBoilerKnob();
-          operateBoiler("cw");
-        } else if (dx <= -BOILER_TRACK_TRIG) {
-          boilerTrackActive = false;
-          resetBoilerKnob();
-          operateBoiler("ccw");
-        }
-      };
-      const onBoilerTrackUp = () => {
-        if (!boilerTrackActive) return;
-        boilerTrackActive = false;
-        resetBoilerKnob();
-        if (boilerTrackMaxAbs < 8) {
-          boilerTrack.classList.remove("shake-hint");
-          void boilerTrack.offsetWidth;
-          boilerTrack.classList.add("shake-hint");
-          showToast("试着拨动飞轮。", 2200);
-        }
-      };
-      boilerTrack.addEventListener("pointerdown", onBoilerTrackDown);
-      window.addEventListener("pointermove", onBoilerTrackMove);
-      window.addEventListener("pointerup", onBoilerTrackUp);
-      window.addEventListener("pointercancel", onBoilerTrackUp);
-      act1Cleanups.push(() => {
-        boilerTrack.removeEventListener("pointerdown", onBoilerTrackDown);
-        window.removeEventListener("pointermove", onBoilerTrackMove);
-        window.removeEventListener("pointerup", onBoilerTrackUp);
-        window.removeEventListener("pointercancel", onBoilerTrackUp);
-      });
 
       // 底部精致旋转阀轮拖动浮条（点击 3D 旋轮弹出，可直接拖动滑块，也可在 3D 上直接拖动）
       const wheelPadEl = document.getElementById("act1-wheel-pad");
@@ -9722,7 +9509,6 @@
         if (!qb) return;
         const collapsed = qb.classList.toggle("collapsed");
         questToggleBtn.textContent = collapsed ? "▾" : "▴";
-        syncTopHudOffsets();
       });
     }
     const zoomResetBtn = document.getElementById("btn-zoom-reset");
@@ -9776,7 +9562,6 @@
       syncCompactBottomLabels();
       const angEl = document.getElementById("angle-box");
       if (angEl) angEl.textContent = isPortraitHudLayout() ? `🧭 ${SNAP_DEG[viewIdx]}°` : `🧭 正交视角：${SNAP_DEG[viewIdx]}°`;
-      syncTopHudOffsets();
       syncBottomFloatPanels();
       if (customFinaleRenderer && customFinaleRenderer.resize) {
         customFinaleRenderer.resize(window.innerWidth, window.innerHeight);
