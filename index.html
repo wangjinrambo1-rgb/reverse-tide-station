@@ -662,6 +662,7 @@
     .zoom-reset-btn { display: none; padding: 3px 7px !important; font-size: 10.5px !important; }
     .zoom-reset-btn.show { display: inline-flex; align-items: center; justify-content: center; }
     .mobile-reset-btn,
+    .mobile-view-reset-btn,
     #mobile-gesture-hint { display: none; }
 
     /* === 手机端 / 竖屏极简无框沉浸适配（仅留轻量提示字与页签，桌面横屏保持原样不变） === */
@@ -721,6 +722,16 @@
       }
       body.act1-mode .mobile-reset-btn { color: rgba(18, 74, 62, 0.60); text-shadow: 0 1px 5px rgba(240, 255, 248, 0.80); }
       body.night-mode .mobile-reset-btn { color: rgba(214, 226, 250, 0.64); text-shadow: 0 1px 8px rgba(4, 10, 28, 0.90); }
+      .mobile-view-reset-btn {
+        display: none; align-items: center; justify-content: center;
+        background: none; border: none; padding: 2px 5px;
+        font-size: 11.5px; font-weight: 700; cursor: pointer;
+        color: rgba(54, 38, 40, 0.72);
+        text-shadow: 0 1px 5px rgba(255, 244, 238, 0.72);
+      }
+      .mobile-view-reset-btn.show { display: inline-flex; }
+      body.act1-mode .mobile-view-reset-btn { color: rgba(18, 74, 62, 0.76); text-shadow: 0 1px 5px rgba(240, 255, 248, 0.80); }
+      body.night-mode .mobile-view-reset-btn { color: rgba(255, 228, 168, 0.86); text-shadow: 0 1px 8px rgba(4, 10, 28, 0.90); }
 
       .quest-box {
         max-width: 92vw; width: auto; padding: 0 8px;
@@ -848,11 +859,12 @@
       <button class="btn" data-act="2">二 · 回声双塔</button>
       <button class="btn" data-act="3">三 · 钟埠船闸</button>
       <button class="mobile-reset-btn" id="btn-mobile-reset" type="button" title="重置本幕">↺</button>
+      <button class="mobile-view-reset-btn" id="btn-mobile-view-reset" type="button" title="重置视角缩放与位置">归中</button>
     </div>
   </div>
 
   <div id="toast">提示信息</div>
-  <div id="mobile-gesture-hint" aria-hidden="true">轻点移动或触发机关 · 单指滑动转视角 · 双指缩放</div>
+  <div id="mobile-gesture-hint" aria-hidden="true">轻点移动或触发机关 · 单指滑转 · 双指缩放/平移</div>
 
   <div id="npc-dialog-backdrop"></div>
   <div id="npc-dialog" role="dialog" aria-labelledby="npc-name">
@@ -1347,7 +1359,7 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = isMobileLike ? 1.18 : 1.14;
+    renderer.toneMappingExposure = 1.14;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(0x000000, 0);
     renderer.localClippingEnabled = true;
@@ -1356,7 +1368,7 @@
     const isWebGL2 = renderer.capabilities.isWebGL2;
     const supportsHalfFloatRT = isWebGL2 || !!renderer.extensions.get("EXT_color_buffer_half_float");
     const rtType = supportsHalfFloatRT ? THREE.HalfFloatType : THREE.UnsignedByteType;
-    const mainRtSamples = isWebGL2 ? (isMobileLike ? 2 : 4) : 0;
+    const mainRtSamples = isWebGL2 ? 4 : 0;
 
     const scene = new THREE.Scene();
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -1484,8 +1496,9 @@
         uTexelSize: { value: new THREE.Vector2(1.0 / _initRtW, 1.0 / _initRtH) },
         uEdgeStep: { value: 1.0 },
         uEdgeColor: { value: new THREE.Color(0.06, 0.09, 0.085) },
-        uEdgeAlpha: { value: isMobileLike ? 0.66 : 0.78 },
+        uEdgeAlpha: { value: isMobileLike ? 0.68 : 0.78 },
         uIsMobile: { value: isMobileLike ? 1.0 : 0.0 },
+        uCamSpin: { value: 0.0 },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -1502,6 +1515,7 @@
         uniform vec3 uEdgeColor;
         uniform float uEdgeAlpha;
         uniform float uIsMobile;
+        uniform float uCamSpin;
         varying vec2 vUv;
 
         vec3 decodeViewNormal(vec2 rg) {
@@ -1526,65 +1540,97 @@
           vec2 stepUv = uTexelSize * uEdgeStep;
           vec4 cMain = texture2D(tColor, vUv);
 
-          // 中心对称十字 5 点严格整数 texel 采样，消除非整数 NearestFilter 跳步断线
-          vec4 eC = texture2D(tEdge, vUv);
-          vec4 eL = texture2D(tEdge, vUv - vec2(stepUv.x, 0.0));
-          vec4 eR = texture2D(tEdge, vUv + vec2(stepUv.x, 0.0));
-          vec4 eU = texture2D(tEdge, vUv + vec2(0.0, stepUv.y));
-          vec4 eD = texture2D(tEdge, vUv - vec2(0.0, stepUv.y));
+          // 3x3（9 点整数 texel）采样：提供旋转各向同性 Sobel 深度/法线梯度与 8 邻域抗锯齿覆盖率
+          vec4 eC  = texture2D(tEdge, vUv);
+          vec4 eL  = texture2D(tEdge, vUv - vec2(stepUv.x, 0.0));
+          vec4 eR  = texture2D(tEdge, vUv + vec2(stepUv.x, 0.0));
+          vec4 eU  = texture2D(tEdge, vUv + vec2(0.0, stepUv.y));
+          vec4 eD  = texture2D(tEdge, vUv - vec2(0.0, stepUv.y));
+          vec4 eUL = texture2D(tEdge, vUv + vec2(-stepUv.x,  stepUv.y));
+          vec4 eUR = texture2D(tEdge, vUv + vec2( stepUv.x,  stepUv.y));
+          vec4 eDL = texture2D(tEdge, vUv + vec2(-stepUv.x, -stepUv.y));
+          vec4 eDR = texture2D(tEdge, vUv + vec2( stepUv.x, -stepUv.y));
 
-          float dC = edgeDepth(eC);
-          float dL = edgeDepth(eL);
-          float dR = edgeDepth(eR);
-          float dU = edgeDepth(eU);
-          float dD = edgeDepth(eD);
+          float dC  = edgeDepth(eC);
+          float dL  = edgeDepth(eL);
+          float dR  = edgeDepth(eR);
+          float dU  = edgeDepth(eU);
+          float dD  = edgeDepth(eD);
+          float dUL = edgeDepth(eUL);
+          float dUR = edgeDepth(eUR);
+          float dDL = edgeDepth(eDL);
+          float dDR = edgeDepth(eDR);
 
-          float pC = partGroup(eC.a);
-          float pL = partGroup(eL.a);
-          float pR = partGroup(eR.a);
-          float pU = partGroup(eU.a);
-          float pD = partGroup(eD.a);
+          float pC  = partGroup(eC.a);
+          float pL  = partGroup(eL.a);
+          float pR  = partGroup(eR.a);
+          float pU  = partGroup(eU.a);
+          float pD  = partGroup(eD.a);
+          float pUL = partGroup(eUL.a);
+          float pUR = partGroup(eUR.a);
+          float pDL = partGroup(eDL.a);
+          float pDR = partGroup(eDR.a);
 
-          // 1. 连续外轮廓深度跃变（前景边缘满权 + 背景边缘柔和 0.42 过渡，根除斜边断点与锯齿）
+          // 1. 3x3 旋转各向同性 Sobel 外轮廓（消除非 45° 旋转时的边线闪烁跳动）
+          float dGx = (dUR + 2.0 * dR + dDR) - (dUL + 2.0 * dL + dDL);
+          float dGy = (dUL + 2.0 * dU + dUR) - (dDL + 2.0 * dD + dDR);
+          float dSobel = length(vec2(dGx, dGy)) * 0.25;
           float dDiffMax = max(max(abs(dC - dL), abs(dC - dR)), max(abs(dC - dU), abs(dC - dD)));
-          float dDiffAvg = (abs(dC - dL) + abs(dC - dR) + abs(dC - dU) + abs(dC - dD)) * 0.25;
           float frontBias = (pC > 0.5) ? 1.0 : 0.42;
-          float silhouetteEdge = smoothstep(0.0040, 0.0090, max(dDiffMax, dDiffAvg * 1.35)) * frontBias;
+          float silhouetteEdge = smoothstep(0.0042, 0.0110, max(dSobel, dDiffMax * 0.85)) * frontBias;
 
-          // 2. 连续部件分界线（按四邻不同部件累计再柔和映射，斜向分界线平滑不断点）
+          // 2. 8 邻域覆盖率部件分界线（平滑过渡斜边，根除旋转“蚂蚁爬行”锯齿）
           float bSum = 0.0;
           if (pC > 0.5) {
-            if (pL > 0.5 && abs(pC - pL) >= 0.5 && dC <= dL + 0.0025) bSum += 1.0;
-            if (pR > 0.5 && abs(pC - pR) >= 0.5 && dC <= dR + 0.0025) bSum += 1.0;
-            if (pU > 0.5 && abs(pC - pU) >= 0.5 && dC <= dU + 0.0025) bSum += 1.0;
-            if (pD > 0.5 && abs(pC - pD) >= 0.5 && dC <= dD + 0.0025) bSum += 1.0;
+            if (pL  > 0.5 && abs(pC - pL)  >= 0.5 && dC <= dL  + 0.0028) bSum += 1.0;
+            if (pR  > 0.5 && abs(pC - pR)  >= 0.5 && dC <= dR  + 0.0028) bSum += 1.0;
+            if (pU  > 0.5 && abs(pC - pU)  >= 0.5 && dC <= dU  + 0.0028) bSum += 1.0;
+            if (pD  > 0.5 && abs(pC - pD)  >= 0.5 && dC <= dD  + 0.0028) bSum += 1.0;
+            if (pUL > 0.5 && abs(pC - pUL) >= 0.5 && dC <= dUL + 0.0028) bSum += 0.5;
+            if (pUR > 0.5 && abs(pC - pUR) >= 0.5 && dC <= dUR + 0.0028) bSum += 0.5;
+            if (pDL > 0.5 && abs(pC - pDL) >= 0.5 && dC <= dDL + 0.0028) bSum += 0.5;
+            if (pDR > 0.5 && abs(pC - pDR) >= 0.5 && dC <= dDR + 0.0028) bSum += 0.5;
           }
-          float boundaryEdge = smoothstep(0.0, 1.45, bSum) * 0.88;
+          float boundaryEdge = smoothstep(0.45, 2.35, bSum) * 0.88;
 
-          // 3. 建筑大起伏棱线（中心对称法线梯度 + 移动端过滤碎杂噪点仅留主折角）
+          // 3. 建筑大起伏棱线（3x3 法线 Sobel 梯度 + 移动端旋转期间温和抑制高频细线闪烁）
           bool samePart = (pC > 0.5)
-            && (abs(pC - pL) < 0.5) && (abs(pC - pR) < 0.5)
-            && (abs(pC - pU) < 0.5) && (abs(pC - pD) < 0.5);
+            && (abs(pC - pL)  < 0.5) && (abs(pC - pR)  < 0.5)
+            && (abs(pC - pU)  < 0.5) && (abs(pC - pD)  < 0.5)
+            && (abs(pC - pUL) < 0.5) && (abs(pC - pUR) < 0.5)
+            && (abs(pC - pDL) < 0.5) && (abs(pC - pDR) < 0.5);
           bool allowCrease = samePart
-            && (mod(floor(eC.a + 0.5), 2.0) > 0.5)
-            && (mod(floor(eL.a + 0.5), 2.0) > 0.5)
-            && (mod(floor(eR.a + 0.5), 2.0) > 0.5)
-            && (mod(floor(eU.a + 0.5), 2.0) > 0.5)
-            && (mod(floor(eD.a + 0.5), 2.0) > 0.5);
+            && (mod(floor(eC.a  + 0.5), 2.0) > 0.5)
+            && (mod(floor(eL.a  + 0.5), 2.0) > 0.5)
+            && (mod(floor(eR.a  + 0.5), 2.0) > 0.5)
+            && (mod(floor(eU.a  + 0.5), 2.0) > 0.5)
+            && (mod(floor(eD.a  + 0.5), 2.0) > 0.5)
+            && (mod(floor(eUL.a + 0.5), 2.0) > 0.5)
+            && (mod(floor(eUR.a + 0.5), 2.0) > 0.5)
+            && (mod(floor(eDL.a + 0.5), 2.0) > 0.5)
+            && (mod(floor(eDR.a + 0.5), 2.0) > 0.5);
           float creaseEdge = 0.0;
           if (allowCrease && silhouetteEdge < 0.25) {
-            vec3 nL = decodeViewNormal(eL.rg);
-            vec3 nR = decodeViewNormal(eR.rg);
-            vec3 nU = decodeViewNormal(eU.rg);
-            vec3 nD = decodeViewNormal(eD.rg);
-            float nGrad = max(length(nL - nR), length(nU - nD));
-            float crLo = mix(0.56, 0.76, uIsMobile);
-            float crHi = mix(0.90, 1.12, uIsMobile);
+            vec3 nL  = decodeViewNormal(eL.rg);
+            vec3 nR  = decodeViewNormal(eR.rg);
+            vec3 nU  = decodeViewNormal(eU.rg);
+            vec3 nD  = decodeViewNormal(eD.rg);
+            vec3 nUL = decodeViewNormal(eUL.rg);
+            vec3 nUR = decodeViewNormal(eUR.rg);
+            vec3 nDL = decodeViewNormal(eDL.rg);
+            vec3 nDR = decodeViewNormal(eDR.rg);
+            vec3 nGx = (nUR + 2.0 * nR + nDR) - (nUL + 2.0 * nL + nDL);
+            vec3 nGy = (nUL + 2.0 * nU + nUR) - (nDL + 2.0 * nD + nDR);
+            float nGrad = length(vec2(length(nGx), length(nGy))) * 0.25;
+            float crLo = mix(0.58, 0.78, uIsMobile);
+            float crHi = mix(0.94, 1.18, uIsMobile);
             creaseEdge = smoothstep(crLo, crHi, nGrad) * mix(0.80, 0.68, uIsMobile);
           }
+          float spinAtten = clamp(uCamSpin, 0.0, 1.0) * uIsMobile;
+          creaseEdge *= (1.0 - spinAtten * 0.72);
 
           float edgeStrength = max(max(silhouetteEdge, boundaryEdge), creaseEdge);
-          float edgeAlpha = clamp(edgeStrength * uEdgeAlpha, 0.0, 1.0);
+          float edgeAlpha = clamp(edgeStrength * uEdgeAlpha * mix(1.0, 0.84, spinAtten), 0.0, 1.0);
 
           // 线性色 unpremultiply -> ACESFilmicToneMapping -> sRGB -> 预乘 Porter-Duff SrcOver 合成
           vec3 sceneSrgb = vec3(0.0);
@@ -1721,6 +1767,21 @@
     let aspect = window.innerWidth / window.innerHeight;
     let userPinchZoom = 1.0;
     let userPinchZoomTarget = 1.0;
+    const userPanTarget = new THREE.Vector3(0, 0, 0);
+    const userPanCurrent = new THREE.Vector3(0, 0, 0);
+    const _camLookEff = new THREE.Vector3();
+    let _prevCamYaw = Math.PI / 4;
+    let _camSpinSmooth = 0.0;
+    function clampUserPanTarget() {
+      const maxPanR = THREE.MathUtils.clamp(3.2 + Math.max(0.0, userPinchZoomTarget - 1.0) * 5.2, 3.2, 10.5);
+      const len = Math.hypot(userPanTarget.x, userPanTarget.z);
+      if (len > maxPanR) {
+        const s = maxPanR / len;
+        userPanTarget.x *= s;
+        userPanTarget.z *= s;
+      }
+      userPanTarget.y = 0.0;
+    }
     const camera = new THREE.OrthographicCamera(
       (-frustum * aspect) / 2, (frustum * aspect) / 2,
       frustum / 2, -frustum / 2,
@@ -1756,10 +1817,13 @@
       });
     }
 
-    /** 仅当手动捏合缩放偏离 1.0 时显露 1:1 复位钮。 */
+    /** 当手动捏合缩放或双指平移偏离默认视图时，显露桌面端 1:1 按钮与移动端“归中”按钮。 */
     function syncZoomResetBtn() {
+      const moved = Math.abs(userPinchZoomTarget - 1.0) > 0.05 || (userPanTarget.x * userPanTarget.x + userPanTarget.z * userPanTarget.z) > 0.04;
       const btn = document.getElementById("btn-zoom-reset");
-      if (btn) btn.classList.toggle("show", Math.abs(userPinchZoomTarget - 1.0) > 0.05);
+      if (btn) btn.classList.toggle("show", moved);
+      const mBtn = document.getElementById("btn-mobile-view-reset");
+      if (mBtn) mBtn.classList.toggle("show", moved);
     }
 
     const raycaster = new THREE.Raycaster();
@@ -1794,6 +1858,8 @@
     function playCutsceneSequence(steps) {
       closeNpcDialog();
       clearCutsceneSequence(false);
+      userPanTarget.set(0, 0, 0);
+      syncZoomResetBtn();
       let elapsed = 0;
       steps.forEach((step) => {
         const fire = () => {
@@ -1828,6 +1894,8 @@
       camZoomCurrent = 1.0;
       userPinchZoomTarget = 1.0;
       userPinchZoom = 1.0;
+      userPanTarget.set(0, 0, 0);
+      userPanCurrent.set(0, 0, 0);
       syncZoomResetBtn();
     }
 
@@ -1845,6 +1913,7 @@
     function updateCameraPos() {
       camYawCurrent += (camYawTarget - camYawCurrent) * 0.14;
       camTargetCurrent.lerp(camTarget, 0.085);
+      userPanCurrent.lerp(userPanTarget, 0.18);
       camZoomCurrent += (camZoomTarget - camZoomCurrent) * 0.085;
       userPinchZoom += (userPinchZoomTarget - userPinchZoom) * 0.14;
       const combinedZoom = camZoomCurrent * userPinchZoom;
@@ -1852,13 +1921,20 @@
         camera.zoom = combinedZoom;
         camera.updateProjectionMatrix();
       }
+      _camLookEff.copy(camTargetCurrent).add(userPanCurrent);
       const horiz = camDist * Math.cos(camPitch);
       camera.position.set(
-        camTargetCurrent.x + Math.sin(camYawCurrent) * horiz,
-        camTargetCurrent.y + Math.sin(camPitch) * camDist,
-        camTargetCurrent.z + Math.cos(camYawCurrent) * horiz
+        _camLookEff.x + Math.sin(camYawCurrent) * horiz,
+        _camLookEff.y + Math.sin(camPitch) * camDist,
+        _camLookEff.z + Math.cos(camYawCurrent) * horiz
       );
-      camera.lookAt(camTargetCurrent);
+      camera.lookAt(_camLookEff);
+
+      const yawDelta = Math.abs(camYawCurrent - _prevCamYaw);
+      _prevCamYaw = camYawCurrent;
+      const targetSpin = THREE.MathUtils.clamp(yawDelta * 180.0, 0.0, 1.0);
+      _camSpinSmooth += (targetSpin - _camSpinSmooth) * (targetSpin > _camSpinSmooth ? 0.35 : 0.14);
+      compositeMat.uniforms.uCamSpin.value = _camSpinSmooth;
     }
 
     // === 色板材质 ===
@@ -2361,6 +2437,8 @@
     let _mirrorFrameCount = 0;
     let _mirrorLastYaw = 999;
     let _mirrorLastZoom = 999;
+    let _mirrorLastPanX = 999;
+    let _mirrorLastPanZ = 999;
 
     /** 每帧在主渲染前更新所有镜面的反射纹理（移动端半分辨率、关阴影、稳态分帧轮流更新）。 */
     function updateMirrors(now) {
@@ -2368,9 +2446,15 @@
       _mirrorFrameCount++;
       renderer.getDrawingBufferSize(_mv2);
       camera.updateMatrixWorld();
-      const camMoved = Math.abs(camYawCurrent - _mirrorLastYaw) > 0.002 || Math.abs(camera.zoom - _mirrorLastZoom) > 0.002;
+      const camMoved =
+        Math.abs(camYawCurrent - _mirrorLastYaw) > 0.002 ||
+        Math.abs(camera.zoom - _mirrorLastZoom) > 0.002 ||
+        Math.abs(userPanCurrent.x - _mirrorLastPanX) > 0.001 ||
+        Math.abs(userPanCurrent.z - _mirrorLastPanZ) > 0.001;
       _mirrorLastYaw = camYawCurrent;
       _mirrorLastZoom = camera.zoom;
+      _mirrorLastPanX = userPanCurrent.x;
+      _mirrorLastPanZ = userPanCurrent.z;
       const refreshAll = !isMobileLike || _mirrorFrameCount <= 6 || camMoved;
 
       const masterMirrors = mirrors.filter((m) => !m.sharedFrom);
@@ -2406,7 +2490,7 @@
         _mUp.y = -_mUp.y;
         m.cam.position.copy(_mPos);
         m.cam.up.copy(_mUp);
-        _mLook.set(camTargetCurrent.x, 2 * m.y - camTargetCurrent.y, camTargetCurrent.z);
+        _mLook.set(_camLookEff.x, 2 * m.y - _camLookEff.y, _camLookEff.z);
         m.cam.lookAt(_mLook);
         m.cam.updateMatrixWorld();
         m.cam.projectionMatrix.copy(camera.projectionMatrix);
@@ -2942,8 +3026,8 @@
       const mHint = document.getElementById("mobile-gesture-hint");
       if (mHint) {
         mHint.textContent = invList.length
-          ? `已携：${invList.join(" · ")} · 单指滑转 · 双指缩放`
-          : "轻点移动或触发机关 · 单指滑动转视角 · 双指缩放";
+          ? `已携：${invList.join(" · ")} · 单指滑转 · 双指缩放/平移`
+          : "轻点移动或触发机关 · 单指滑转 · 双指缩放/平移";
       }
     }
 
@@ -4292,18 +4376,18 @@
 
       // 3. V20 三层独立联动水晶水镜（南池下层 / 中池中层 / 北池顶层各自独立实时升降水面！）
       addMirror({ width: 42, depth: 42, x: 0.0, z: 0.0, y: -0.305, tint: 0xd6efe8, deep: 0x9accc4, strength: 0.20, alpha: 0.14, ripple: 0.0, resScale: 1.0 });
-      const ACT1_WAT_OPT = { crystalWater: true, tint: 0x66c6f0, shallow: 0x3ec2ea, mid: 0x1e8ed6, deep: 0x115ba8, strength: 0.17, ripple: 0.0012, resScale: 1.0 };
+      const ACT1_WAT_OPT = { crystalWater: true, tint: 0x3496d8, shallow: 0x1b8bc4, mid: 0x0d5da6, deep: 0x07346c, strength: 0.16, ripple: 0.0012, resScale: 1.0 };
 
-      const northWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 4.86, depth: 2.24, x: 0.08, z: -3.18, y: 0.46, alpha: 0.56, ripple: 0.0011, edgeMask: [1, 1, 1, 1] });
-      const midWaterMaster = addMirror({ ...ACT1_WAT_OPT, width: 5.42, depth: 3.18, x: 0.42, z: -0.14, y: 0.62, alpha: 0.64, ripple: 0.0013, edgeMask: [0, 1, 1, 1] });
+      const northWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 4.86, depth: 2.24, x: 0.08, z: -3.18, y: 0.46, alpha: 0.72, ripple: 0.0011, edgeMask: [1, 1, 1, 1] });
+      const midWaterMaster = addMirror({ ...ACT1_WAT_OPT, width: 5.42, depth: 3.18, x: 0.42, z: -0.14, y: 0.62, alpha: 0.78, ripple: 0.0013, edgeMask: [0, 1, 1, 1] });
       const midWaterMirrors = [
         midWaterMaster,
-        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.66, depth: 3.24, x: 4.75, z: -0.16, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [1, 1, 1, 0] }),
-        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.28, x: 5.065, z: 2.10, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [0, 1, 0, 0] }),
-        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.72, x: 5.065, z: 3.60, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [0, 1, 0, 1] }),
-        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.62, depth: 3.12, x: -3.60, z: 0.31, y: 0.62, alpha: 0.62, ripple: 0.0011, edgeMask: [1, 0, 0, 0] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.66, depth: 3.24, x: 4.75, z: -0.16, y: 0.62, alpha: 0.76, ripple: 0.0011, edgeMask: [1, 1, 1, 0] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.28, x: 5.065, z: 2.10, y: 0.62, alpha: 0.76, ripple: 0.0011, edgeMask: [0, 1, 0, 0] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.03, depth: 1.72, x: 5.065, z: 3.60, y: 0.62, alpha: 0.76, ripple: 0.0011, edgeMask: [0, 1, 0, 1] }),
+        addMirror({ ...ACT1_WAT_OPT, sharedWith: midWaterMaster, width: 2.62, depth: 3.12, x: -3.60, z: 0.31, y: 0.62, alpha: 0.76, ripple: 0.0011, edgeMask: [1, 0, 0, 0] }),
       ];
-      const southWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 8.60, depth: 2.52, x: -0.25, z: 3.13, y: 0.72, alpha: 0.64, ripple: 0.0012, edgeMask: [1, 0, 2, 1] });
+      const southWaterMirror = addMirror({ ...ACT1_WAT_OPT, width: 8.60, depth: 2.52, x: -0.25, z: 3.13, y: 0.72, alpha: 0.78, ripple: 0.0012, edgeMask: [1, 0, 2, 1] });
 
       let southWaterY = 0.72, midWaterY = 0.62, northWaterY = 0.46;
       let southDepthScale = 0.88, midDepthScale = 0.82, northDepthScale = 0.50;
@@ -9357,15 +9441,21 @@
       syncAct3();
     }
 
-    // === 单指拖拽旋转 / 双指捏合缩放 / 点击射线交互 ===
+    // === 单指拖拽旋转 / 双指捏合缩放 + 双指平移场景 / 点击射线交互 ===
     let isDragging = false, dragStartX = 0, dragMoved = false;
     const activePointers = new Map();
-    let isPinching = false, wasPinching = false, pinchLastDist = 0;
+    let isPinching = false, wasPinching = false, pinchLastDist = 0, pinchLastCenter = null;
 
     function getPinchDistance() {
       const pts = Array.from(activePointers.values());
       if (pts.length < 2) return 0;
       return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    }
+
+    function getPinchCenter() {
+      const pts = Array.from(activePointers.values());
+      if (pts.length < 2) return null;
+      return { x: (pts[0].x + pts[1].x) * 0.5, y: (pts[0].y + pts[1].y) * 0.5 };
     }
 
     renderer.domElement.addEventListener("pointerdown", (e) => {
@@ -9378,6 +9468,7 @@
         isPinching = true;
         wasPinching = true;
         pinchLastDist = getPinchDistance();
+        pinchLastCenter = getPinchCenter();
         return;
       }
       isDragging = true;
@@ -9405,11 +9496,31 @@
       }
       if (isPinching && activePointers.size >= 2) {
         const curDist = getPinchDistance();
+        const curCenter = getPinchCenter();
         if (pinchLastDist > 12 && curDist > 12) {
-          userPinchZoomTarget = THREE.MathUtils.clamp(userPinchZoomTarget * (curDist / pinchLastDist), 0.85, 2.40);
-          syncZoomResetBtn();
+          userPinchZoomTarget = THREE.MathUtils.clamp(userPinchZoomTarget * (curDist / pinchLastDist), 0.85, 2.80);
         }
+        if (pinchLastCenter && curCenter) {
+          const dxPx = curCenter.x - pinchLastCenter.x;
+          const dyPx = curCenter.y - pinchLastCenter.y;
+          if (Math.abs(dxPx) > 0.1 || Math.abs(dyPx) > 0.1) {
+            if (cutsceneTimers.length) clearCutsceneSequence(true);
+            const effZoom = Math.max(0.25, camera.zoom || 1.0);
+            const visW = (camera.right - camera.left) / effZoom;
+            const visH = (camera.top - camera.bottom) / effZoom;
+            const dxW = dxPx * (visW / Math.max(1, window.innerWidth));
+            const dyW = dyPx * (visH / Math.max(1, window.innerHeight));
+            const cosY = Math.cos(camYawCurrent);
+            const sinY = Math.sin(camYawCurrent);
+            const panFwd = dyW / Math.sin(camPitch);
+            userPanTarget.x += -dxW * cosY - panFwd * sinY;
+            userPanTarget.z += dxW * sinY - panFwd * cosY;
+            clampUserPanTarget();
+          }
+        }
+        syncZoomResetBtn();
         pinchLastDist = curDist;
+        pinchLastCenter = curCenter;
         hoverTag.style.display = "none";
         return;
       }
@@ -9456,6 +9567,7 @@
       if (activePointers.size < 2) {
         isPinching = false;
         pinchLastDist = 0;
+        pinchLastCenter = null;
       }
       if (customFinaleRenderer) {
         isDragging = false;
@@ -9511,14 +9623,16 @@
         questToggleBtn.textContent = collapsed ? "▾" : "▴";
       });
     }
+    const resetCameraView = (e) => {
+      if (e) e.stopPropagation();
+      userPinchZoomTarget = 1.0;
+      userPanTarget.set(0, 0, 0);
+      syncZoomResetBtn();
+    };
     const zoomResetBtn = document.getElementById("btn-zoom-reset");
-    if (zoomResetBtn) {
-      zoomResetBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        userPinchZoomTarget = 1.0;
-        syncZoomResetBtn();
-      });
-    }
+    if (zoomResetBtn) zoomResetBtn.addEventListener("click", resetCameraView);
+    const mobileViewResetBtn = document.getElementById("btn-mobile-view-reset");
+    if (mobileViewResetBtn) mobileViewResetBtn.addEventListener("click", resetCameraView);
 
     document.getElementById("btn-rot-l").addEventListener("click", () => setViewIndex(viewIdx - 1));
     document.getElementById("btn-rot-r").addEventListener("click", () => setViewIndex(viewIdx + 1));
