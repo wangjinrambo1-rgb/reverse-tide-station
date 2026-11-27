@@ -554,7 +554,8 @@
     body.finale-3d-mode #act1-bell-panel,
     body.finale-3d-mode #act3-valve-pad,
     body.finale-3d-mode #act3-bolt-pad,
-    body.finale-3d-mode #act3-bell-panel {
+    body.finale-3d-mode #act3-bell-panel,
+    body.finale-3d-mode #light-studio-wrap {
       opacity: 0 !important; pointer-events: none !important;
       transition: opacity 0.8s ease;
     }
@@ -830,6 +831,90 @@
       }
       #hover-tag { display: none !important; }
     }
+
+    /* TEMP LIGHT STUDIO START */
+    #light-studio-wrap {
+      position: fixed; top: 84px; right: 14px; width: 256px; z-index: 30;
+      background: rgba(18, 30, 38, 0.86);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      color: #eef7f4;
+      border: 1px solid rgba(212, 178, 108, 0.55);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      font-size: 11.5px; user-select: none; pointer-events: auto;
+      overflow: hidden;
+    }
+    #light-studio-wrap.collapsed {
+      width: auto; border-radius: 999px;
+    }
+    #light-studio-wrap .ls-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      cursor: pointer; font-weight: 700; color: #ffe7b3;
+    }
+    #light-studio-wrap.collapsed .ls-head {
+      border-bottom: none; padding: 6px 12px;
+    }
+    #light-studio-wrap .ls-toggle {
+      background: rgba(255, 255, 255, 0.12); border: none; color: #eef7f4;
+      border-radius: 6px; padding: 2px 7px; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    #light-studio-wrap .ls-body {
+      padding: 8px 10px 9px; display: flex; flex-direction: column; gap: 6px;
+      max-height: calc(100dvh - 150px); overflow-y: auto;
+    }
+    #light-studio-wrap.collapsed .ls-body { display: none; }
+    #light-studio-wrap .ls-row { display: flex; flex-direction: column; gap: 2px; }
+    #light-studio-wrap .ls-lbl {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; color: #cce6df; font-weight: 600;
+    }
+    #light-studio-wrap .ls-val { color: #ffd984; font-variant-numeric: tabular-nums; font-weight: 700; }
+    #light-studio-wrap input[type="range"] {
+      width: 100%; height: 18px; accent-color: #ebb652; cursor: pointer; margin: 0;
+    }
+    #light-studio-wrap .ls-colors {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 2px;
+    }
+    #light-studio-wrap .ls-color-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      background: rgba(255, 255, 255, 0.06); padding: 4px 7px; border-radius: 6px; font-size: 11px;
+    }
+    #light-studio-wrap input[type="color"] {
+      width: 24px; height: 18px; border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 4px; padding: 0; background: transparent; cursor: pointer;
+    }
+    #light-studio-wrap .ls-actions {
+      display: flex; gap: 6px; padding-top: 3px;
+    }
+    #light-studio-wrap .ls-btn {
+      flex: 1; background: rgba(235, 182, 82, 0.20); color: #ffebbd;
+      border: 1px solid rgba(235, 182, 82, 0.55); border-radius: 6px;
+      padding: 5px 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    #light-studio-wrap .ls-btn:hover { background: rgba(235, 182, 82, 0.34); }
+    #light-studio-wrap .ls-btn.sub {
+      flex: 0 0 auto; background: rgba(255, 255, 255, 0.08); color: #d8ece6;
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+    #ls-export-box {
+      display: none; width: 100%; height: 74px; margin-top: 4px;
+      background: rgba(8, 14, 20, 0.85); color: #a7f3d0;
+      border: 1px solid rgba(110, 231, 183, 0.45); border-radius: 6px;
+      font-family: ui-monospace, Consolas, monospace; font-size: 10px; padding: 5px; resize: none;
+    }
+    #ls-export-box.show { display: block; }
+    @media (max-width: 768px), (orientation: portrait) and (max-width: 900px) {
+      #light-studio-wrap {
+        top: calc(74px + env(safe-area-inset-top)); right: 10px;
+        width: min(286px, calc(100vw - 20px));
+      }
+      #light-studio-wrap.collapsed { width: auto; }
+      #light-studio-wrap input[type="range"] { height: 22px; }
+    }
+    /* TEMP LIGHT STUDIO END */
   </style>
 </head>
 <body>
@@ -865,6 +950,58 @@
 
   <div id="toast">提示信息</div>
   <div id="mobile-gesture-hint" aria-hidden="true">轻点移动或触发机关 · 单指滑转 · 双指缩放/平移</div>
+
+  <!-- TEMP LIGHT STUDIO START -->
+  <div id="light-studio-wrap" role="region" aria-label="光照实时调试面板">
+    <div class="ls-head" id="ls-head">
+      <span id="ls-head-title">☀ 光照调试 · <span id="ls-act-name">第一幕</span></span>
+      <button class="ls-toggle" id="ls-toggle-btn" type="button">收起</button>
+    </div>
+    <div class="ls-body" id="ls-body">
+      <div class="ls-row">
+        <div class="ls-lbl"><span>主光亮度</span><span class="ls-val" id="ls-val-sun">3.35</span></div>
+        <input type="range" id="ls-sun-int" min="0" max="6" step="0.05" value="3.35" />
+      </div>
+      <div class="ls-row">
+        <div class="ls-lbl"><span>光照水平角</span><span class="ls-val" id="ls-val-az">234°</span></div>
+        <input type="range" id="ls-azimuth" min="0" max="360" step="1" value="234" />
+      </div>
+      <div class="ls-row">
+        <div class="ls-lbl"><span>光照仰角</span><span class="ls-val" id="ls-val-el">41°</span></div>
+        <input type="range" id="ls-elevation" min="10" max="85" step="1" value="41" />
+      </div>
+      <div class="ls-row">
+        <div class="ls-lbl"><span>阴影亮度 (环境泛光)</span><span class="ls-val" id="ls-val-amb">0.14</span></div>
+        <input type="range" id="ls-amb-int" min="0" max="1" step="0.02" value="0.14" />
+      </div>
+      <div class="ls-row">
+        <div class="ls-lbl"><span>阴影填充 (天/地光)</span><span class="ls-val" id="ls-val-hemi">0.46</span></div>
+        <input type="range" id="ls-hemi-int" min="0" max="1.5" step="0.02" value="0.46" />
+      </div>
+      <div class="ls-row">
+        <div class="ls-lbl"><span>环境反射 (IBL)</span><span class="ls-val" id="ls-val-env">0.42</span></div>
+        <input type="range" id="ls-env-int" min="0" max="1.4" step="0.02" value="0.42" />
+      </div>
+      <div class="ls-row">
+        <div class="ls-lbl"><span>背光补光</span><span class="ls-val" id="ls-val-fill">0.16</span></div>
+        <input type="range" id="ls-fill-int" min="0" max="1" step="0.02" value="0.16" />
+      </div>
+      <div class="ls-row">
+        <div class="ls-lbl"><span>整体曝光</span><span class="ls-val" id="ls-val-exp">1.10</span></div>
+        <input type="range" id="ls-exposure" min="0.6" max="1.6" step="0.02" value="1.10" />
+      </div>
+      <div class="ls-colors">
+        <label class="ls-color-item"><span>主光色</span><input type="color" id="ls-sun-color" value="#fff4dc" /></label>
+        <label class="ls-color-item"><span>阴影底色</span><input type="color" id="ls-ground-color" value="#1d4d58" /></label>
+      </div>
+      <div class="ls-actions">
+        <button class="ls-btn" id="ls-copy-btn" type="button">📋 复制三幕参数</button>
+        <button class="ls-btn sub" id="ls-reset-btn" type="button">↺ 重置本幕</button>
+      </div>
+      <textarea id="ls-export-box" readonly></textarea>
+    </div>
+  </div>
+  <!-- TEMP LIGHT STUDIO END -->
 
   <div id="npc-dialog-backdrop"></div>
   <div id="npc-dialog" role="dialog" aria-labelledby="npc-name">
@@ -3031,6 +3168,17 @@
       }
     }
 
+    // TEMP LIGHT STUDIO START
+    const LIGHT_STUDIO_STORAGE_KEY = "reverse_tide_light_studio_v1";
+    const lightStudioDefaults = {};
+    const lightStudioOverrides = (() => {
+      try {
+        return JSON.parse(localStorage.getItem(LIGHT_STUDIO_STORAGE_KEY) || "{}") || {};
+      } catch (e) { return {}; }
+    })();
+    let activeLightRefs = null;
+    // TEMP LIGHT STUDIO END
+
     let lightsGroup = new THREE.Group();
     scene.add(lightsGroup);
     function setupLights(bgHex, ambientInt, sunColor, sunInt, sunPos, isNight = false, isAct1 = false) {
@@ -3046,16 +3194,18 @@
       }
       document.body.classList.toggle("night-mode", isNight);
       lightsGroup.clear();
+      let amb, hemi;
       if (isNight) {
-        lightsGroup.add(new THREE.AmbientLight(0x88a8e8, ambientInt * 0.50));
-        lightsGroup.add(new THREE.HemisphereLight(0x7898e0, 0x09122a, 0.34));
+        amb = new THREE.AmbientLight(0x88a8e8, ambientInt * 0.50);
+        hemi = new THREE.HemisphereLight(0x7898e0, 0x09122a, 0.34);
       } else if (isAct1) {
-        lightsGroup.add(new THREE.AmbientLight(0x8ec8c0, ambientInt));
-        lightsGroup.add(new THREE.HemisphereLight(0xdaf6f0, 0x1d4d58, 0.46));
+        amb = new THREE.AmbientLight(0x8ec8c0, ambientInt);
+        hemi = new THREE.HemisphereLight(0xdaf6f0, 0x1d4d58, 0.46);
       } else {
-        lightsGroup.add(new THREE.AmbientLight(0xd8c8e8, Math.min(ambientInt, 0.14)));
-        lightsGroup.add(new THREE.HemisphereLight(0xffdfc4, 0x1e2648, 0.46));
+        amb = new THREE.AmbientLight(0xd8c8e8, Math.min(ambientInt, 0.14));
+        hemi = new THREE.HemisphereLight(0xffdfc4, 0x1e2648, 0.46);
       }
+      lightsGroup.add(amb, hemi);
       const sun = new THREE.DirectionalLight(sunColor, sunInt);
       sun.position.set(...sunPos);
       sun.castShadow = true;
@@ -3070,7 +3220,209 @@
       const fill = new THREE.DirectionalLight(isNight ? 0x527cc8 : (isAct1 ? 0x68b0c4 : 0x6e8ed6), 0.16);
       fill.position.set(-11, 7, -10);
       lightsGroup.add(fill);
+
+      // TEMP LIGHT STUDIO START
+      const _sp = sun.position;
+      const _dist = Math.hypot(_sp.x, _sp.y, _sp.z) || 22.8;
+      const _elDeg = Math.round(THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(_sp.y / _dist, -1, 1))));
+      const _azDeg = ((Math.round(THREE.MathUtils.radToDeg(Math.atan2(_sp.x, _sp.z))) % 360) + 360) % 360;
+      const actKey = currentAct || (isNight ? 3 : (isAct1 ? 1 : 2));
+      const defSnap = {
+        sunInt: Number(sun.intensity.toFixed(2)),
+        azimuth: _azDeg,
+        elevation: _elDeg,
+        ambientInt: Number(amb.intensity.toFixed(2)),
+        hemiInt: Number(hemi.intensity.toFixed(2)),
+        envInt: Number(scene.environmentIntensity.toFixed(2)),
+        fillInt: Number(fill.intensity.toFixed(2)),
+        exposure: 1.10,
+        sunColor: "#" + sun.color.getHexString(),
+        hemiGround: "#" + hemi.groundColor.getHexString(),
+      };
+      lightStudioDefaults[actKey] = defSnap;
+      activeLightRefs = { act: actKey, amb, hemi, sun, fill, dist: _dist };
+      if (lightStudioOverrides[actKey]) {
+        applyLightStudioParams(lightStudioOverrides[actKey]);
+      } else {
+        renderer.toneMappingExposure = defSnap.exposure;
+      }
+      syncLightStudioUI();
+      // TEMP LIGHT STUDIO END
     }
+
+    // TEMP LIGHT STUDIO START
+    function applyLightStudioParams(p) {
+      if (!activeLightRefs || !p) return;
+      const { amb, hemi, sun, fill, dist } = activeLightRefs;
+      sun.intensity = p.sunInt;
+      sun.color.set(p.sunColor);
+      const az = THREE.MathUtils.degToRad(p.azimuth);
+      const el = THREE.MathUtils.degToRad(p.elevation);
+      const cosEl = Math.cos(el);
+      sun.position.set(
+        Number((Math.sin(az) * cosEl * dist).toFixed(2)),
+        Number((Math.sin(el) * dist).toFixed(2)),
+        Number((Math.cos(az) * cosEl * dist).toFixed(2))
+      );
+      sun.shadow.camera.updateProjectionMatrix();
+      amb.intensity = p.ambientInt;
+      hemi.intensity = p.hemiInt;
+      hemi.groundColor.set(p.hemiGround);
+      scene.environmentIntensity = p.envInt;
+      fill.intensity = p.fillInt;
+      renderer.toneMappingExposure = p.exposure;
+      _mirrorLastYaw = 999;
+    }
+
+    function getLightStudioCurrentParams(actKey) {
+      if (lightStudioOverrides[actKey]) return { ...lightStudioOverrides[actKey] };
+      if (lightStudioDefaults[actKey]) return { ...lightStudioDefaults[actKey] };
+      return null;
+    }
+
+    function syncLightStudioUI() {
+      const wrapEl = document.getElementById("light-studio-wrap");
+      if (!wrapEl || !activeLightRefs) return;
+      const actKey = activeLightRefs.act;
+      const p = getLightStudioCurrentParams(actKey);
+      if (!p) return;
+      const actNames = { 1: "第一幕", 2: "第二幕", 3: "第三幕" };
+      const actSpan = document.getElementById("ls-act-name");
+      if (actSpan) actSpan.textContent = actNames[actKey] || `第${actKey}幕`;
+
+      const setRange = (id, valId, v, fmt) => {
+        const el = document.getElementById(id);
+        const vEl = document.getElementById(valId);
+        if (el) el.value = String(v);
+        if (vEl) vEl.textContent = fmt(v);
+      };
+      setRange("ls-sun-int", "ls-val-sun", p.sunInt, (v) => Number(v).toFixed(2));
+      setRange("ls-azimuth", "ls-val-az", p.azimuth, (v) => `${Math.round(v)}°`);
+      setRange("ls-elevation", "ls-val-el", p.elevation, (v) => `${Math.round(v)}°`);
+      setRange("ls-amb-int", "ls-val-amb", p.ambientInt, (v) => Number(v).toFixed(2));
+      setRange("ls-hemi-int", "ls-val-hemi", p.hemiInt, (v) => Number(v).toFixed(2));
+      setRange("ls-env-int", "ls-val-env", p.envInt, (v) => Number(v).toFixed(2));
+      setRange("ls-fill-int", "ls-val-fill", p.fillInt, (v) => Number(v).toFixed(2));
+      setRange("ls-exposure", "ls-val-exp", p.exposure, (v) => Number(v).toFixed(2));
+      const sc = document.getElementById("ls-sun-color");
+      if (sc) sc.value = p.sunColor;
+      const gc = document.getElementById("ls-ground-color");
+      if (gc) gc.value = p.hemiGround;
+    }
+
+    (() => {
+      const lsWrap = document.getElementById("light-studio-wrap");
+      const lsHead = document.getElementById("ls-head");
+      const lsToggle = document.getElementById("ls-toggle-btn");
+      const lsTitle = document.getElementById("ls-head-title");
+      const lsExportBox = document.getElementById("ls-export-box");
+      if (!lsWrap) return;
+
+      const updateCollapseState = (collapsed) => {
+        lsWrap.classList.toggle("collapsed", collapsed);
+        if (lsToggle) lsToggle.textContent = collapsed ? "展开" : "收起";
+        if (lsTitle) {
+          lsTitle.innerHTML = collapsed
+            ? `☀ 调光`
+            : `☀ 光照调试 · <span id="ls-act-name">${["", "第一幕", "第二幕", "第三幕"][activeLightRefs?.act || 1] || "第一幕"}</span>`;
+        }
+      };
+
+      if (isPortraitHudLayout() || isMobileLike) {
+        updateCollapseState(true);
+      }
+
+      const stopEvt = (e) => e.stopPropagation();
+      ["pointerdown", "touchstart", "wheel"].forEach((ev) => lsWrap.addEventListener(ev, stopEvt));
+
+      if (lsHead) {
+        lsHead.addEventListener("click", (e) => {
+          e.stopPropagation();
+          updateCollapseState(!lsWrap.classList.contains("collapsed"));
+        });
+      }
+
+      const persistCurrentOverride = () => {
+        if (!activeLightRefs) return;
+        const actKey = activeLightRefs.act;
+        const nextP = {
+          sunInt: parseFloat(document.getElementById("ls-sun-int")?.value || "3.35"),
+          azimuth: parseInt(document.getElementById("ls-azimuth")?.value || "234", 10),
+          elevation: parseInt(document.getElementById("ls-elevation")?.value || "41", 10),
+          ambientInt: parseFloat(document.getElementById("ls-amb-int")?.value || "0.14"),
+          hemiInt: parseFloat(document.getElementById("ls-hemi-int")?.value || "0.46"),
+          envInt: parseFloat(document.getElementById("ls-env-int")?.value || "0.42"),
+          fillInt: parseFloat(document.getElementById("ls-fill-int")?.value || "0.16"),
+          exposure: parseFloat(document.getElementById("ls-exposure")?.value || "1.10"),
+          sunColor: document.getElementById("ls-sun-color")?.value || "#fff4dc",
+          hemiGround: document.getElementById("ls-ground-color")?.value || "#1d4d58",
+        };
+        lightStudioOverrides[actKey] = nextP;
+        try { localStorage.setItem(LIGHT_STUDIO_STORAGE_KEY, JSON.stringify(lightStudioOverrides)); } catch (e) {}
+        applyLightStudioParams(nextP);
+        syncLightStudioUI();
+      };
+
+      ["ls-sun-int", "ls-azimuth", "ls-elevation", "ls-amb-int", "ls-hemi-int", "ls-env-int", "ls-fill-int", "ls-exposure", "ls-sun-color", "ls-ground-color"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("input", persistCurrentOverride);
+      });
+
+      const resetBtn = document.getElementById("ls-reset-btn");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!activeLightRefs) return;
+          const actKey = activeLightRefs.act;
+          delete lightStudioOverrides[actKey];
+          try { localStorage.setItem(LIGHT_STUDIO_STORAGE_KEY, JSON.stringify(lightStudioOverrides)); } catch (err) {}
+          if (lightStudioDefaults[actKey]) {
+            applyLightStudioParams(lightStudioDefaults[actKey]);
+          }
+          syncLightStudioUI();
+          if (lsExportBox) lsExportBox.classList.remove("show");
+          showToast("已恢复本幕默认光影参数", 2000);
+        });
+      }
+
+      const copyBtn = document.getElementById("ls-copy-btn");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const out = {};
+          [1, 2, 3].forEach((k) => {
+            const p = getLightStudioCurrentParams(k);
+            if (!p) return;
+            const d = (activeLightRefs && activeLightRefs.act === k) ? activeLightRefs.dist : 22.8;
+            const az = THREE.MathUtils.degToRad(p.azimuth);
+            const el = THREE.MathUtils.degToRad(p.elevation);
+            const cosEl = Math.cos(el);
+            out[`act${k}`] = {
+              ...p,
+              sunPos: [
+                Number((Math.sin(az) * cosEl * d).toFixed(2)),
+                Number((Math.sin(el) * d).toFixed(2)),
+                Number((Math.cos(az) * cosEl * d).toFixed(2)),
+              ],
+            };
+          });
+          const jsonText = JSON.stringify(out, null, 2);
+          if (lsExportBox) {
+            lsExportBox.value = jsonText;
+            lsExportBox.classList.add("show");
+            lsExportBox.focus();
+            lsExportBox.select();
+          }
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(jsonText);
+            }
+          } catch (err) {}
+          showToast("已生成并复制三幕光照参数，发给我即可固化并隐藏工具！", 3400);
+        });
+      }
+    })();
+    // TEMP LIGHT STUDIO END
 
     let act1Cleanups = [];
     function resetLevel() {
@@ -9463,7 +9815,7 @@
     ["gesturestart", "gesturechange"].forEach((ev) => renderer.domElement.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
     renderer.domElement.addEventListener("pointerdown", (e) => {
       if (customFinaleRenderer) return;
-      if (e.target && e.target.closest && e.target.closest("#npc-dialog")) return;
+      if (e.target && e.target.closest && (e.target.closest("#npc-dialog") || e.target.closest("#light-studio-wrap"))) return;
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
       if (activePointers.size >= 2) {
         isDragging = false;
