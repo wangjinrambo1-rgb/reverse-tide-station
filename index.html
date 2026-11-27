@@ -921,7 +921,7 @@
       const chunk = THREE.ShaderChunk.lights_physical_pars_fragment;
       if (chunk.includes(key)) {
         THREE.ShaderChunk.lights_physical_pars_fragment =
-          "float celBand( float x ) { float s1 = smoothstep( 0.04, 0.14, x ); float s2 = smoothstep( 0.42, 0.56, x ); return 0.04 + 0.64 * s1 + 0.44 * s2; }\n" +
+          "float celBand( float x ) { float s1 = smoothstep( 0.08, 0.18, x ); float s2 = smoothstep( 0.50, 0.65, x ); return 0.02 + 0.46 * s1 + 0.72 * s2; }\n" +
           chunk.replace(key, "vec3 irradiance = celBand( dotNL ) * directLight.color;");
       } else {
         console.warn("[Toon] 未找到 RE_Direct_Physical 漫反射片段，跳过色带量化");
@@ -1359,7 +1359,7 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.14;
+    renderer.toneMappingExposure = 1.10;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(0x000000, 0);
     renderer.localClippingEnabled = true;
@@ -1383,7 +1383,7 @@
             float h = vP.y;
             vec3 top = vec3(0.98, 0.88, 0.82);
             vec3 hor = vec3(1.00, 0.92, 0.84);
-            vec3 bot = vec3(0.48, 0.56, 0.60);
+            vec3 bot = vec3(0.16, 0.20, 0.32);
             vec3 c = h > 0.0 ? mix(hor, top, smoothstep(0.0, 0.75, h)) : mix(hor, bot, smoothstep(0.0, 0.30, -h));
             c += vec3(0.55, 0.46, 0.32) * smoothstep(0.55, 0.94, dot(vP, normalize(vec3(0.50, 0.72, 0.48))));
             c += vec3(0.24, 0.36, 0.42) * smoothstep(0.45, 0.92, dot(vP, normalize(vec3(-0.62, 0.48, -0.62))));
@@ -1405,7 +1405,7 @@
             float h = vP.y;
             vec3 top = vec3(0.84, 0.97, 0.93);
             vec3 hor = vec3(0.88, 0.98, 0.94);
-            vec3 bot = vec3(0.42, 0.66, 0.60);
+            vec3 bot = vec3(0.14, 0.30, 0.36);
             vec3 c = h > 0.0 ? mix(hor, top, smoothstep(0.0, 0.75, h)) : mix(hor, bot, smoothstep(0.0, 0.30, -h));
             c += vec3(0.40, 0.52, 0.46) * smoothstep(0.55, 0.94, dot(vP, normalize(vec3(0.50, 0.72, 0.48))));
             c += vec3(0.24, 0.44, 0.40) * smoothstep(0.45, 0.92, dot(vP, normalize(vec3(-0.62, 0.48, -0.62))));
@@ -3036,6 +3036,7 @@
     function setupLights(bgHex, ambientInt, sunColor, sunInt, sunPos, isNight = false, isAct1 = false) {
       scene.background = bgHex === null ? null : new THREE.Color(bgHex);
       scene.environment = isAct1 ? act1CeladonEnvTex : duskEnvTex;
+      scene.environmentIntensity = isNight ? 0.36 : (isAct1 ? 0.42 : 0.44);
       if (isNight) {
         compositeMat.uniforms.uEdgeColor.value.setRGB(0.035, 0.045, 0.075);
       } else if (isAct1) {
@@ -3046,14 +3047,14 @@
       document.body.classList.toggle("night-mode", isNight);
       lightsGroup.clear();
       if (isNight) {
-        lightsGroup.add(new THREE.AmbientLight(0xffffff, ambientInt * 0.65));
-        lightsGroup.add(new THREE.HemisphereLight(0x9ab0ff, 0x162447, 0.48));
+        lightsGroup.add(new THREE.AmbientLight(0x88a8e8, ambientInt * 0.50));
+        lightsGroup.add(new THREE.HemisphereLight(0x7898e0, 0x09122a, 0.34));
       } else if (isAct1) {
-        lightsGroup.add(new THREE.AmbientLight(0xdff7ef, 0.38));
-        lightsGroup.add(new THREE.HemisphereLight(0xe5faf4, 0x6ea696, 0.92));
+        lightsGroup.add(new THREE.AmbientLight(0x8ec8c0, ambientInt));
+        lightsGroup.add(new THREE.HemisphereLight(0xdaf6f0, 0x1d4d58, 0.46));
       } else {
-        lightsGroup.add(new THREE.AmbientLight(0xffffff, Math.min(ambientInt, 0.24)));
-        lightsGroup.add(new THREE.HemisphereLight(0xffe6d2, 0x3a4b72, 0.88));
+        lightsGroup.add(new THREE.AmbientLight(0xd8c8e8, Math.min(ambientInt, 0.14)));
+        lightsGroup.add(new THREE.HemisphereLight(0xffdfc4, 0x1e2648, 0.46));
       }
       const sun = new THREE.DirectionalLight(sunColor, sunInt);
       sun.position.set(...sunPos);
@@ -3062,10 +3063,11 @@
       sun.shadow.mapSize.set(shadowSz, shadowSz);
       sun.shadow.bias = -0.00035;
       sun.shadow.normalBias = 0.018;
+      sun.shadow.radius = 2.0;
       sun.shadow.camera.left = -13.5; sun.shadow.camera.right = 13.5;
       sun.shadow.camera.top = 13.5; sun.shadow.camera.bottom = -13.5;
       lightsGroup.add(sun);
-      const fill = new THREE.DirectionalLight(isNight ? 0xbfd8ff : (isAct1 ? 0xa6e2d8 : 0x8eb2e8), isNight ? 0.38 : (isAct1 ? 0.38 : 0.36));
+      const fill = new THREE.DirectionalLight(isNight ? 0x527cc8 : (isAct1 ? 0x68b0c4 : 0x6e8ed6), 0.16);
       fill.position.set(-11, 7, -10);
       lightsGroup.add(fill);
     }
@@ -4038,7 +4040,7 @@
       resetLevel();
       document.body.classList.add("act1-mode");
       document.getElementById("act-title").textContent = "第一幕 · 验潮庭";
-      setupLights(null, 0.38, 0xf0fcf7, 2.45, [-12, 13, 8], false, true);
+      setupLights(null, 0.14, 0xfff4dc, 3.35, [-14, 15, 10], false, true);
       setBaseCameraTarget(-0.15, 2.55, 0.10);
       setViewIndex(0, true);
 
@@ -6185,7 +6187,7 @@
       currentAct = 2;
       resetLevel();
       document.getElementById("act-title").textContent = "第二幕 · 回声双塔";
-      setupLights(null, 0.22, 0xffe7c2, 2.75, [13, 14, 7], false);
+      setupLights(null, 0.12, 0xffd598, 3.55, [14, 13, 6], false);
       setBaseCameraTarget(1.9, 2.8, -0.2);
       setViewIndex(0, true);
 
@@ -7321,7 +7323,7 @@
       currentAct = 3;
       resetLevel();
       document.getElementById("act-title").textContent = "第三幕 · 钟埠船闸";
-      setupLights(null, 0.20, 0x9abef5, 1.15, [10, 15, 11], true);
+      setupLights(null, 0.18, 0x9ac2ff, 1.65, [11, 16, 10], true);
       setBaseCameraTarget(0.25, 2.75, 0.15);
       setViewIndex(0, true);
 
