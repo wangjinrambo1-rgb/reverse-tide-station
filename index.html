@@ -833,6 +833,7 @@
     }
 
     /* TEMP LIGHT STUDIO START */
+    body:not(.light-studio-open) #light-studio-wrap { display: none !important; }
     #light-studio-wrap {
       position: fixed; top: 84px; right: 14px; width: 256px; z-index: 30;
       background: rgba(18, 30, 38, 0.86);
@@ -1708,13 +1709,32 @@
           float pDL = partGroup(eDL.a);
           float pDR = partGroup(eDR.a);
 
-          // 1. 3x3 旋转各向同性 Sobel 外轮廓（消除非 45° 旋转时的边线闪烁跳动）
-          float dGx = (dUR + 2.0 * dR + dDR) - (dUL + 2.0 * dL + dDL);
-          float dGy = (dUL + 2.0 * dU + dUR) - (dDL + 2.0 * dD + dDR);
-          float dSobel = length(vec2(dGx, dGy)) * 0.25;
-          float dDiffMax = max(max(abs(dC - dL), abs(dC - dR)), max(abs(dC - dU), abs(dC - dD)));
-          float frontBias = (pC > 0.5) ? 1.0 : 0.42;
-          float silhouetteEdge = smoothstep(0.0042, 0.0110, max(dSobel, dDiffMax * 0.85)) * frontBias;
+          // 1. 3x3 旋转各向同性 Sobel 外轮廓（第三幕明轮船仅在外边界处描线，彻底消除船舱内部描线）
+          bool isShipC = abs(pC - 4.0) < 0.5;
+          float silhouetteEdge = 0.0;
+          if (isShipC) {
+            float extMax = 0.0;
+            float extSum = 0.0;
+            if (abs(pL  - 4.0) >= 0.5) { extMax = max(extMax, abs(dC - dL));  extSum += 1.0; }
+            if (abs(pR  - 4.0) >= 0.5) { extMax = max(extMax, abs(dC - dR));  extSum += 1.0; }
+            if (abs(pU  - 4.0) >= 0.5) { extMax = max(extMax, abs(dC - dU));  extSum += 1.0; }
+            if (abs(pD  - 4.0) >= 0.5) { extMax = max(extMax, abs(dC - dD));  extSum += 1.0; }
+            if (abs(pUL - 4.0) >= 0.5) { extMax = max(extMax, abs(dC - dUL)); extSum += 0.5; }
+            if (abs(pUR - 4.0) >= 0.5) { extMax = max(extMax, abs(dC - dUR)); extSum += 0.5; }
+            if (abs(pDL - 4.0) >= 0.5) { extMax = max(extMax, abs(dC - dDL)); extSum += 0.5; }
+            if (abs(pDR - 4.0) >= 0.5) { extMax = max(extMax, abs(dC - dDR)); extSum += 0.5; }
+            silhouetteEdge = max(
+              smoothstep(0.0042, 0.0110, extMax),
+              smoothstep(0.45, 2.35, extSum) * 0.88
+            );
+          } else {
+            float dGx = (dUR + 2.0 * dR + dDR) - (dUL + 2.0 * dL + dDL);
+            float dGy = (dUL + 2.0 * dU + dUR) - (dDL + 2.0 * dD + dDR);
+            float dSobel = length(vec2(dGx, dGy)) * 0.25;
+            float dDiffMax = max(max(abs(dC - dL), abs(dC - dR)), max(abs(dC - dU), abs(dC - dD)));
+            float frontBias = (pC > 0.5) ? 1.0 : 0.42;
+            silhouetteEdge = smoothstep(0.0042, 0.0110, max(dSobel, dDiffMax * 0.85)) * frontBias;
+          }
 
           // 2. 8 邻域覆盖率部件分界线（平滑过渡斜边，根除旋转“蚂蚁爬行”锯齿）
           float bSum = 0.0;
@@ -3311,6 +3331,9 @@
     }
 
     (() => {
+      if (new URLSearchParams(window.location.search).get("debugLight") === "1") {
+        document.body.classList.add("light-studio-open");
+      }
       const lsWrap = document.getElementById("light-studio-wrap");
       const lsHead = document.getElementById("ls-head");
       const lsToggle = document.getElementById("ls-toggle-btn");
@@ -8003,7 +8026,9 @@
       shipGroup.position.set(2.30, 0.64, -0.10);
       levelRoot.add(shipGroup);
       const shipMeta = { type: "act3_ship", label: "蒸汽明轮船" };
-      mountRodinModel(shipGroup, "act3_paddle_steamer", [0, 0, 0], 2.65, 90, [], shipMeta);
+      mountRodinModel(shipGroup, "act3_paddle_steamer", [0, 0, 0], 2.65, 90, [], shipMeta, (clone) => {
+        tagEdgePart(clone, true, 4);
+      });
       addAct3HitZone(0.0, 0.65, 0.0, 4.40, 1.95, 1.75, shipMeta, shipGroup);
       const shipLightA = new THREE.PointLight(0xffbd4a, 5.0, 9.5, 1.4);
       shipLightA.position.set(-0.65, 1.35, 0.45);
@@ -8042,6 +8067,7 @@
         blade.rotation.z = a;
         paddleWheelGroup.add(blade);
       }
+      tagEdgePart(paddleWheelGroup, true, 4);
       const shipWakePuffs = [];
       for (let i = 0; i < 10; i++) {
         const wp = new THREE.Mesh(
@@ -8239,8 +8265,8 @@
       gangplankGroup.add(gpHinge);
       const plankHitZone = addAct3HitZone(0.0, 0.0, -0.81, 0.98, 0.55, 1.68, plankMeta, gangplankGroup);
 
-      // 西广场夜巡 NPC：瑟岚（位于西南广场入口内侧，与红毯桥、海汽阀、楼梯互不干涉）
-      const seranNpc = createNpcSeran([-7.35, 1.10, 2.90], Math.PI * 0.25, {
+      // 西广场东侧开阔区 NPC：瑟岚（远离红毯路口与全部主通道，避免与主角穿插）
+      const seranNpc = createNpcSeran([-2.45, 1.10, 1.65], -Math.PI * 0.28, {
         type: "act3_npc_seran",
         label: "💬 与瑟岚对话 · 钟埠夜巡领路",
       }, { nightLantern: true });
@@ -9603,7 +9629,7 @@
 
       window.__onObjectClick = (u, hitPoint) => {
         if (u.type === "act3_npc_seran") {
-          walkToAndRun("plaza_front", () => openAct3SeranDialog(), unreachText());
+          walkToAndRun("bell_box", () => openAct3SeranDialog(), unreachText());
           return;
         }
         if (u.type === "act3_walk") {
